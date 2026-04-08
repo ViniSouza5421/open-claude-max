@@ -42,25 +42,12 @@ OpenClaude is a multi-agent workspace built on top of Claude Code. It turns a si
 
 ## Screenshots
 
-<p align="center">
-  <img src="public/print-overview.png" alt="Overview Dashboard" width="100%"/>
-  <br/><sub>Overview — unified metrics from all agents</sub>
-</p>
-
-<p align="center">
-  <img src="public/print-chat.png" alt="Chat Terminal" width="100%"/>
-  <br/><sub>Chat — embedded Claude Code terminal in the browser</sub>
-</p>
-
-<p align="center">
-  <img src="public/print-integrations.png" alt="Integrations" width="100%"/>
-  <br/><sub>Integrations — connect all your services</sub>
-</p>
-
-<p align="center">
-  <img src="public/print-costs.png" alt="Costs" width="100%"/>
-  <br/><sub>Costs — token usage and cost tracking per routine</sub>
-</p>
+| | |
+|---|---|
+| ![Overview](public/print-overview.png) | ![Chat](public/print-chat.png) |
+| **Overview** — unified metrics from all agents | **Chat** — embedded Claude Code terminal |
+| ![Integrations](public/print-integrations.png) | ![Costs](public/print-costs.png) |
+| **Integrations** — connect all your services | **Costs** — token usage and cost tracking |
 
 ---
 
