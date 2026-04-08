@@ -91,16 +91,16 @@ make clean-logs    # Remove logs older than 30 days
 | Strategy Digest | HTML + MD | `09 Strategy/digests/[C] YYYY-WXX-strategy-digest.html` |
 | Linear Review | HTML | `workspace/projects/linear-reviews/[C] YYYY-MM-DD-linear-review.html` |
 | GitHub Review | HTML | `workspace/projects/github-reviews/[C] YYYY-MM-DD-github-review.html` |
-| Community Pulse | HTML | `03 Community/reports/daily/[C] YYYY-MM-DD-community-pulse.html` |
-| Community Weekly | HTML | `03 Community/reports/weekly/[C] YYYY-WXX-community-report.html` |
-| FAQ Sync | MD | `03 Community/[C] FAQ.md` (updates) |
+| Community Pulse | HTML | `workspace/community/reports/daily/[C] YYYY-MM-DD-community-pulse.html` |
+| Community Weekly | HTML | `workspace/community/reports/weekly/[C] YYYY-WXX-community-report.html` |
+| FAQ Sync | MD | `workspace/community/[C] FAQ.md` (updates) |
 | Health Check-in | HTML + MD | `06 Personal/health-checkins/reports/[C] YYYY-MM-DD-health.html` |
 | Dashboard | HTML | `workspace/daily-logs/[C] YYYY-MM-DD-dashboard.html` |
-| Financial Pulse | HTML | `05 Finance/reports/daily/[C] YYYY-MM-DD-financial-pulse.html` |
-| Financial Weekly | HTML | `05 Finance/reports/weekly/[C] YYYY-WXX-financial-weekly.html` |
-| Monthly Close | HTML | `05 Finance/reports/monthly/[C] YYYY-MM-monthly-close.html` |
-| Community Monthly | HTML | `03 Community/reports/monthly/[C] YYYY-MM-community-monthly.html` |
-| Social Analytics | HTML | `04 Social/reports/consolidated/[C] YYYY-MM-DD-social-analytics.html` |
+| Financial Pulse | HTML | `workspace/finance/reports/daily/[C] YYYY-MM-DD-financial-pulse.html` |
+| Financial Weekly | HTML | `workspace/finance/reports/weekly/[C] YYYY-WXX-financial-weekly.html` |
+| Monthly Close | HTML | `workspace/finance/reports/monthly/[C] YYYY-MM-monthly-close.html` |
+| Community Monthly | HTML | `workspace/community/reports/monthly/[C] YYYY-MM-community-monthly.html` |
+| Social Analytics | HTML | `workspace/social/reports/consolidated/[C] YYYY-MM-DD-social-analytics.html` |
 | Licensing Daily | HTML | `workspace/projects/licensing-reports/daily/[C] YYYY-MM-DD-licensing-daily.html` |
 | Licensing Weekly | HTML | `workspace/projects/licensing-reports/weekly/[C] YYYY-WXX-licensing-weekly.html` |
 | Licensing Monthly | HTML | `workspace/projects/licensing-reports/monthly/[C] YYYY-MM-licensing-monthly.html` |
