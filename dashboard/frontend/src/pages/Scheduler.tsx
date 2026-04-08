@@ -155,7 +155,7 @@ export default function Scheduler() {
                     <Terminal size={12} /> Logs
                   </button>
                 )}
-              {svc.id !== 'dashboard' && (
+              {svc.id !== 'dashboard' && svc.id !== 'scheduler' && (
                 <button
                   onClick={() => handleAction(svc.id, svc.running ? 'stop' : 'start')}
                   disabled={actionLoading === svc.id}
