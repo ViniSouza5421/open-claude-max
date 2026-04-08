@@ -4,14 +4,15 @@
 # Usage: make <command>
 # Docs: ROUTINES.md
 
+# Auto-detect: uv if available, fallback to python3
+PYTHON := $(shell command -v uv >/dev/null 2>&1 && echo "uv run python" || echo "python3")
+
 # ── Setup ──────────────────────────────────
 setup:              ## 🔧 Interactive setup wizard (prerequisites, config, folders)
-	uv run python setup.py
+	$(PYTHON) setup.py
 
 # ── Routines ───────────────────────────────
 # ============================================================
-
-PYTHON := uv run python
 ADW_DIR := ADWs/rotinas
 
 # Load .env if it exists
