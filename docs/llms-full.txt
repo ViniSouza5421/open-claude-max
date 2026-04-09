@@ -1,0 +1,3494 @@
+# OpenClaude Documentation
+
+Complete reference.
+
+
+---
+
+# Creating a Custom Agent
+
+This guide walks through creating a new agent from scratch.
+
+## File Structure
+
+An agent requires two files:
+
+```
+.claude/
+  agents/my-agent.md       # System prompt + frontmatter
+  commands/my-agent.md     # Slash command definition
+```
+
+## Step 1: Agent File
+
+Create `.claude/agents/my-agent.md` with YAML frontmatter followed by the system prompt.
+
+### Frontmatter Format
+
+```yaml
+---
+name: "my-agent"
+description: "Use this agent when... (routing description with examples)"
+model: sonnet
+color: green
+memory: project
+---
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Unique identifier, matches filename without `.md` |
+| `description` | Yes | Routing description. Claude uses this to decide when to activate the agent. Include example user messages. |
+| `model` | Yes | Model to use: `sonnet`, `opus`, `haiku` |
+| `color` | No | Terminal color for the agent label |
+| `memory` | No | Memory scope: `project` (shared) or `user` (personal) |
+
+### Description Field (Important)
+
+The `description` field controls auto-routing. It should include concrete examples of user messages that should trigger this agent:
+
+```yaml
+description: "Use this agent when the user needs help with customer support tickets, bug reports, or user complaints.\n\nExamples:\n\n- user: \"check support tickets\"\n  assistant: \"I will use the support agent to review open tickets.\"\n\n- user: \"a customer reported a bug\"\n  assistant: \"I will activate the support agent to investigate.\""
+```
+
+## Step 2: System Prompt
+
+Below the frontmatter, write the system prompt. This defines the agent's identity and behavior.
+
+```markdown
+---
+name: "support-agent"
+description: "Use this agent when..."
+model: sonnet
+color: yellow
+memory: project
+---
+
+You are **Support** — the customer support specialist. Direct, empathetic, and solution-oriented.
+
+## Responsibilities
+
+1. **Ticket Triage**: Review and prioritize support tickets
+2. **Bug Investigation**: Reproduce and document reported bugs
+3. **Customer Communication**: Draft professional responses
+
+## Before Starting
+
+- Read `workspace/support/overview.md` for current context
+- Check recent tickets in the support system
+
+## Working Standards
+
+- Save files to `workspace/support/` with `[C]` prefix
+- Always include ticket ID when referencing issues
+- Escalate critical issues immediately
+```
+
+## Step 3: Command File
+
+Create `.claude/commands/my-agent.md`:
+
+```markdown
+Use the @support-agent agent to help the user with the following support matter: $ARGUMENTS
+
+If no arguments were provided, ask the user how you can help (ticket triage, bug investigation, customer responses, etc).
+```
+
+The `$ARGUMENTS` placeholder passes whatever the user types after the slash command.
+
+## Step 4: Agent Memory Directory
+
+The memory directory at `.claude/agent-memory/<agent-name>/` is created automatically when the agent first saves a memory. No manual setup needed.
+
+If you want to pre-populate memory, create the directory and add a `MEMORY.md` index file:
+
+```bash
+mkdir -p .claude/agent-memory/support-agent
+echo "" > .claude/agent-memory/support-agent/MEMORY.md
+```
+
+## Best Practices for System Prompts
+
+### Do
+
+- **Define identity clearly** in the first line: name, role, tone
+- **List specific responsibilities** so the agent knows its scope
+- **Set anti-patterns** — things the agent should never do
+- **Point to context files** the agent should read before starting
+- **Specify output locations** — which folder, what file prefix
+- **Include memory instructions** to build knowledge over time
+
+### Don't
+
+- Write prompts longer than 300 lines (agent + memory boilerplate)
+- Overlap responsibilities with existing agents
+- Include API keys or secrets in the prompt
+- Make the agent too generic — specialization is the point
+
+## Full Example: Support Agent
+
+`.claude/agents/support-agent.md`:
+
+```markdown
+---
+name: "support-agent"
+description: "Use this agent when the user needs help with customer support, bug reports, user complaints, or ticket management.\n\nExamples:\n\n- user: \"check support tickets\"\n  assistant: \"I will use the support agent to review open tickets.\"\n\n- user: \"a customer is having issues with login\"\n  assistant: \"I will activate the support agent to investigate.\""
+model: sonnet
+color: yellow
+memory: project
+---
+
+You are **Support** — the customer support specialist. Direct, empathetic, solution-oriented.
+
+## Identity
+
+- Name: Support
+- Tone: professional, empathetic, concise
+- Language: English
+
+## Responsibilities
+
+1. **Ticket Triage**: Review open tickets, prioritize by severity
+2. **Bug Investigation**: Reproduce issues, document steps, identify root cause
+3. **Response Drafting**: Write customer-facing responses
+4. **Escalation**: Flag critical issues to the team
+
+## Before Starting
+
+- Read `workspace/support/overview.md` for context
+- Check `.claude/agent-memory/support-agent/` for prior context
+
+## Working Standards
+
+- Files go in `workspace/support/` with `[C]` prefix
+- Reference ticket IDs in all outputs
+- Classify severity: P0 (critical), P1 (high), P2 (medium), P3 (low)
+
+## Anti-patterns
+
+- Never promise timelines without checking with the team
+- Never share internal details with customers
+- Never close tickets without confirmation
+
+**Update your agent memory** when you discover recurring issues, customer patterns, or resolution workflows.
+```
+
+`.claude/commands/support.md`:
+
+```markdown
+Use the @support-agent agent to help the user with the following support matter: $ARGUMENTS
+
+If no arguments were provided, ask the user how you can help (ticket triage, bug reports, customer responses, etc).
+```
+
+After creating both files, the agent is immediately available via `/support` in Claude Code.
+
+
+---
+
+# Agents Overview
+
+Agents are the core of OpenClaude. Each agent is a specialized AI persona with its own domain, system prompt, skills, and persistent memory.
+
+## What Is an Agent?
+
+An agent is a markdown file in `.claude/agents/` that contains:
+
+- **Frontmatter** with metadata (name, description, model, color, memory scope)
+- **System prompt** that defines the agent's identity, responsibilities, tone, and behavior
+
+When invoked, Claude Code loads the agent's system prompt and operates within that persona for the duration of the task.
+
+## How to Invoke an Agent
+
+### Slash commands
+
+Each agent has a corresponding command in `.claude/commands/`:
+
+```
+/clawdia    — Ops hub: agenda, emails, tasks, decisions
+/flux       — Finance: Stripe, ERP, cash flow, reports
+/atlas      — Projects: Linear, GitHub, sprints, milestones
+/pulse      — Community: Discord, WhatsApp, sentiment, FAQ
+/pixel      — Social media: content, calendar, analytics
+/sage       — Strategy: OKRs, roadmap, competitive analysis
+/nex        — Sales: pipeline, proposals, qualification
+/mentor     — Courses: learning paths, modules
+/kai        — Personal: health, habits, routine
+```
+
+Usage in Claude Code:
+
+```
+/clawdia check my emails
+/flux what is the company's financial status?
+/pulse how is the community doing?
+```
+
+### Auto-routing
+
+You do not need to pick the right agent manually. Just describe what you need and Claude routes to the correct agent based on the `description` field in each agent's frontmatter.
+
+Examples:
+
+| You say | Agent activated |
+|---------|----------------|
+| "good morning" | Clawdia |
+| "monthly closing" | Flux |
+| "check github PRs" | Atlas |
+| "community sentiment" | Pulse |
+| "write a LinkedIn post" | Pixel |
+| "should we prioritize X or Y?" | Sage |
+| "prepare a proposal for client Z" | Nex |
+| "create a course module" | Mentor |
+| "how is my health progress?" | Kai |
+
+The routing logic uses example interactions in each agent's `description` field to match user intent.
+
+## Agent Memory
+
+Every agent has persistent, file-based memory at:
+
+```
+.claude/agent-memory/<agent-name>/
+```
+
+Memory is organized by type:
+
+| Type | Purpose |
+|------|---------|
+| `user` | Who the user is, their role, preferences |
+| `feedback` | Corrections and confirmed approaches |
+| `project` | Ongoing work, deadlines, decisions |
+| `reference` | Pointers to external systems |
+
+Each memory file uses frontmatter (`name`, `description`, `type`) and a `MEMORY.md` index file tracks all entries. Agents read memory at the start of each session and update it as they learn.
+
+## All 9 Agents
+
+| Agent | File | Command | Domain | Color |
+|-------|------|---------|--------|-------|
+| **Clawdia** | `clawdia-assistant.md` | `/clawdia` | Ops: agenda, emails, tasks, meetings, decisions | cyan |
+| **Flux** | `flux-finance.md` | `/flux` | Finance: Stripe, Omie, cash flow, monthly close | orange |
+| **Atlas** | `atlas-project.md` | `/atlas` | Projects: Linear, GitHub, sprints, licensing | - |
+| **Pulse** | `pulse-community.md` | `/pulse` | Community: Discord, WhatsApp, sentiment, FAQ | blue |
+| **Pixel** | `pixel-social-media.md` | `/pixel` | Social: content, calendar, cross-platform analytics | - |
+| **Sage** | `sage-strategy.md` | `/sage` | Strategy: OKRs, roadmap, competitive analysis | orange |
+| **Nex** | `nex-sales.md` | `/nex` | Sales: pipeline, proposals, qualification | - |
+| **Mentor** | `mentor-courses.md` | `/mentor` | Courses: learning paths, modules, academy | - |
+| **Kai** | `kai-personal-assistant.md` | `/kai` | Personal: health, habits, routine (isolated) | blue |
+
+### Agent Roles in Detail
+
+**Clawdia** is the default agent and operational hub. Morning briefings, email triage, task management, meeting summaries, and end-of-day consolidation all run through Clawdia.
+
+**Flux** acts as a virtual CFO. It queries Stripe for MRR/churn and Omie for payables/receivables, generates financial reports, and manages the monthly close process.
+
+**Atlas** tracks development work across Linear and GitHub. Sprint status, PR reviews, issue tracking, and open source licensing telemetry are its domain.
+
+**Pulse** monitors community health across Discord and WhatsApp. It generates daily/weekly/monthly pulse reports, tracks sentiment, identifies recurring questions, and maintains the FAQ.
+
+**Pixel** manages social media across YouTube, Instagram, and LinkedIn. Content creation, calendar planning, cross-platform analytics, and engagement tracking.
+
+**Sage** handles high-level strategy. OKR reviews, competitive analysis, strategy digests, and decision frameworks.
+
+**Nex** manages the sales pipeline. Lead qualification, proposals, and commercial workflows.
+
+**Mentor** handles the course platform (Evo Academy). Learning paths, module creation, and educational content.
+
+**Kai** is the personal assistant with an isolated domain. Health tracking, habits, personal appointments, and routines. It does not handle professional matters.
+
+
+---
+
+# Architecture
+
+## Overview
+
+OpenClaude is a file-based, git-friendly framework. Everything is markdown, YAML, and Python scripts. No database required for the core framework (SQLite is used only by the dashboard).
+
+```
+┌─────────────────────────────────────────────────┐
+│                    User (human)                  │
+│                        │                         │
+│                  Claude Code CLI                 │
+│                        │                         │
+│   ┌────────┬───────┬───────┬────────┬────────┐  │
+│   │Clawdia │ Flux  │ Atlas │  Pulse  │ Pixel  │  │
+│   │  (ops) │ (fin) │ (proj)│ (comm)  │ (soc)  │  │
+│   └───┬────┴───┬───┴───┬───┴────┬───┴────┬───┘  │
+│       │        │       │        │        │       │
+│   ┌───┴────────┴───────┴────────┴────────┴───┐   │
+│   │              Skills (~80)                 │   │
+│   │   fin- / social- / int- / prod- / mkt-   │   │
+│   └──────────────────────────────────────────┘   │
+│                        │                         │
+│   ┌──────────────────────────────────────────┐   │
+│   │     Integrations (APIs + MCPs)           │   │
+│   │  Gmail / Calendar / Discord / Stripe     │   │
+│   └──────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────┘
+
+        ┌───────────────────────┐
+        │   Scheduler (cron)    │ ─── routines.yaml
+        │   ADW Runner          │ ─── 4 core + ~23 custom examples
+        │   JSONL Logs          │ ─── metrics + costs
+        └───────────────────────┘
+
+        ┌───────────────────────┐
+        │   Dashboard (web)     │
+        │   Flask + React       │
+        │   SQLite (auth only)  │
+        └───────────────────────┘
+```
+
+## Components
+
+### Agents (`.claude/agents/`)
+
+Each agent is a markdown file with a system prompt that defines its domain, responsibilities, and behavioral rules. Agents are invoked via slash commands (`/clawdia`, `/flux`, `/atlas`, etc.) or automatically by Claude based on the user's request.
+
+### Skills (`.claude/skills/`)
+
+Skills are domain-specific instructions that teach Claude how to perform specific tasks. Organized by prefix:
+
+| Prefix | Domain | Count |
+|--------|--------|-------|
+| `social-` | Social media | 17 |
+| `int-` | Integrations | 13 |
+| `fin-` | Financial | 11 |
+| `prod-` | Productivity | 9 |
+| `mkt-` | Marketing | 8 |
+| `gog-` | Google | 6 |
+| `obs-` | Obsidian | 5 |
+| `discord-` | Discord | 5 |
+| `pulse-` | Community | 4 |
+| `sage-` | Strategy | 3 |
+
+> **Note:** `evo-` skills (~45) are maintained in the separate [EVO-METHOD](https://github.com/EvolutionAPI/EVO-METHOD) project. They are gitignored from this repo but work normally if installed locally. The repo ships ~80 non-evo skills.
+
+### Routines (`ADWs/routines/`)
+
+Automated workflows that run on a schedule. Each routine is a Python script that invokes Claude Code CLI with a specific agent and skill.
+
+Routines are split into two tiers:
+- **Core** (`ADWs/routines/`) — 4 routines shipped with the repo (good_morning, end_of_day, memory_sync, weekly_review).
+- **Examples** (`ADWs/routines/examples/`) — ~23 example routines tracked with the repo (community, finance, social, licensing, etc.).
+- **Custom** (`ADWs/routines/custom/`) — user-created routines (gitignored). Copy from examples or create your own.
+
+**Runner** (`ADWs/runner.py`) — The execution engine that:
+- Invokes Claude Code CLI with `--output-format json`
+- Captures token usage and cost
+- Logs to JSONL files
+- Sends Telegram notifications
+- Tracks metrics per routine
+
+**Scheduler** (`scheduler.py`) — Reads `config/routines.yaml` and runs routines at configured times using the `schedule` library.
+
+### Memory
+
+Two-tier persistent memory:
+
+1. **CLAUDE.md** — Hot cache loaded at every session start. Contains key context about the user, company, active projects, and preferences.
+2. **memory/** — Global memory directory with typed files (people, projects, glossary, trends). Agents read these as needed.
+3. **agent-memory/** — Per-agent memory that persists between sessions.
+
+### Dashboard (`dashboard/`)
+
+Web UI built with:
+- **Backend**: Flask + SQLAlchemy + Flask-Login + WebSocket
+- **Frontend**: React + TypeScript + Tailwind + Recharts + xterm.js
+- **Auth**: SQLite with roles (admin/operator/viewer), customizable permissions, audit log
+- **Terminal**: Real browser-based Claude Code terminal via WebSocket PTY
+
+### Integrations
+
+API clients in `.claude/skills/int-*/scripts/` that connect to external services. Each integration has a SKILL.md describing usage and a Python client script.
+
+
+---
+
+# .env Editor
+
+The dashboard includes a built-in editor for the `.env` file, accessible from **Config** in the sidebar. This lets you manage API keys and integration settings without touching the terminal.
+
+Requires the `config:manage` permission (admin role by default).
+
+## Two Editing Modes
+
+### Visual Mode (default)
+
+Displays the `.env` file as a structured form:
+- Each `KEY=VALUE` pair is shown as a labeled input field
+- Comments and section headers are preserved as-is
+- Empty values are highlighted so you can spot missing keys
+
+To edit a value, click the field, type the new value, and click **Save**.
+
+### Raw Mode
+
+A plain text editor showing the full `.env` file contents. Use this when you need to:
+- Add new variables not in the template
+- Rearrange sections
+- Bulk-paste multiple keys at once
+
+Toggle between modes using the **Visual / Raw** switch at the top of the editor.
+
+## How Secrets Are Masked
+
+In Visual mode, values for sensitive keys are masked by default (shown as `*****`). The masking applies to keys matching common patterns:
+
+- `*_TOKEN`
+- `*_SECRET`
+- `*_SECRET_KEY`
+- `*_PASSWORD`
+- `*_API_KEY`
+
+Click the eye icon next to a field to reveal the actual value. The raw value is always sent to the backend when saving -- masking is a frontend-only display feature.
+
+In Raw mode, all values are shown in plain text.
+
+## Saving and Reloading
+
+When you save changes:
+
+1. The backend writes the new content to the `.env` file on disk
+2. `python-dotenv` reloads the variables into the running Flask process (`load_dotenv(override=True)`)
+3. The change is recorded in the **Audit Log** with the acting user
+
+This means **changes take effect without restarting the dashboard**. The Flask process picks up new values immediately.
+
+However, note that:
+- **Running routines** use their own process -- they read `.env` at execution time, so new values apply on the next run
+- **The scheduler** reads `.env` when it spawns each routine, so changes are picked up automatically
+- **MCP servers** configured in `.claude/settings.json` may need a Claude Code restart to pick up new environment variables
+
+## Example Workflow
+
+1. Go to **Config > .env** in the dashboard
+2. Find `DISCORD_BOT_TOKEN` in the Discord section
+3. Click the masked field, paste your token
+4. Click **Save**
+5. Run `make community` to test -- it will use the new token
+
+## Structure of the .env File
+
+The `.env` file follows a sectioned layout generated by `make setup`:
+
+```env
+# -- Stripe -----------------------------------------------
+STRIPE_SECRET_KEY=sk_live_...
+
+# -- Discord -----------------------------------------------
+DISCORD_BOT_TOKEN=your_token
+DISCORD_GUILD_ID=your_guild_id
+
+# -- Telegram -----------------------------------------------
+TELEGRAM_BOT_TOKEN=your_token
+TELEGRAM_CHAT_ID=your_chat_id
+```
+
+The editor preserves comments and blank lines, so sections stay organized after edits.
+
+## API Reference
+
+The `.env` editor uses two endpoints:
+
+```
+GET  /api/config/env    -- returns {entries: [...], raw: "..."}
+PUT  /api/config/env    -- accepts {entries: [...]} or {raw: "..."}
+```
+
+Both require authentication and `config:manage` permission.
+
+
+---
+
+# Dashboard Overview
+
+The OpenClaude web dashboard is a React + Flask application that gives you a visual interface to manage agents, routines, integrations, memory, and more.
+
+## Starting the Dashboard
+
+```bash
+make dashboard-app
+```
+
+This starts the Flask backend (with WebSocket support) and serves the React frontend on a single port. Default: `http://localhost:8080`.
+
+### Changing the Port
+
+Set the port in `config/workspace.yaml`:
+
+```yaml
+dashboard:
+  port: 8080
+```
+
+Or via environment variable:
+
+```bash
+OPENCLAUDE_PORT=9090 make dashboard-app
+```
+
+## First Run Setup
+
+When no users exist in the database, the dashboard redirects to a setup wizard at `/setup`. The wizard walks you through:
+
+1. **Workspace info** -- name, company, timezone
+2. **Admin account** -- create your first user (username + password)
+3. **Agents** -- choose which of the 9 agents to enable
+4. **Integrations** -- select which services to connect
+
+After setup completes, you are logged in as admin and can access all pages.
+
+## Dashboard Pages
+
+### Overview
+
+Unified metrics dashboard. Shows aggregated data from all agents -- financial snapshot, community health, project status, social reach. This is the landing page after login.
+
+![Overview](../imgs/doc-overview.png)
+
+### Systems
+
+Register external apps and services your team uses. Each system has a name, URL, type (Docker container, external URL, or iframe), and icon. Useful for quick-access links to tools like Grafana, Portainer, or internal apps.
+
+![Systems list](../imgs/doc-systems-list.png)
+
+![Systems app](../imgs/doc-systems-app.png)
+
+### Reports
+
+Browse HTML reports generated by automated routines. Reports are stored in `workspace/` subfolders and displayed with date, agent, and type. Click any report to view the full HTML in a new tab.
+
+![Reports list](../imgs/doc-reports-list.png)
+
+![Reports open](../imgs/doc-reports-open.png)
+
+### Agents
+
+View the 9 agent definitions. Each card shows the agent name, slash command, domain, and full system prompt (loaded from `.claude/agents/`). Read-only -- agents are defined as markdown files.
+
+![Agents](../imgs/doc-agents.png)
+
+### Routines
+
+Metrics for each automated routine: total runs, success rate, average duration, token usage, and cost. Includes a "Run Now" button to trigger any routine manually.
+
+![Routines](../imgs/doc-routines.png)
+
+### Skills
+
+Browse all installed skills grouped by prefix (`social-`, `fin-`, `int-`, `prod-`, etc). Click a skill to see its full description, trigger conditions, and source file.
+
+![Skills](../imgs/doc-skills.png)
+
+### Templates
+
+Preview the HTML report templates from `.claude/templates/html/`. See how each template renders before routines use them.
+
+![Templates](../imgs/doc-templates.png)
+
+### Services
+
+Start and stop background services (scheduler, Telegram bot) directly from the UI. Shows live log output via WebSocket streaming. Status indicators show whether each service is running.
+
+![Services](../imgs/doc-services.png)
+
+### Memory
+
+Browse the two-tier memory system:
+- **CLAUDE.md** -- working memory, loaded every session
+- **memory/** -- detailed files (people, projects, glossary, trends)
+- **Agent memory** -- per-agent context in `.claude/agent-memory/`
+
+### Integrations
+
+Status board for all 18 integrations. Shows which are connected (green), which need configuration (yellow), and which are disabled. Social media accounts (YouTube, Instagram, LinkedIn) can be connected via OAuth directly from this page.
+
+![Integrations](../imgs/doc-integrations.png)
+
+### Chat
+
+Embedded Claude Code terminal powered by xterm.js + WebSocket. Run Claude Code commands, invoke agents with slash commands, and see output in real time -- all from the browser.
+
+![Chat](../imgs/doc-chat.png)
+
+### Users
+
+User management page (admin only). Create, edit, deactivate users. Assign roles. See last login timestamps.
+
+### Roles
+
+Define custom roles with a granular permission matrix. Each role maps resources (chat, services, reports, etc.) to actions (view, execute, manage). Built-in roles (admin, operator, viewer) cannot be deleted but can be cloned.
+
+![Roles](../imgs/doc-roles.png)
+
+### Costs
+
+Token usage and cost tracking per routine. Displays charts showing cost trends over time, token consumption breakdown (input vs output), and per-routine cost comparison. Useful for monitoring Claude API spend across automated workflows.
+
+![Costs](../imgs/doc-costs.png)
+
+### Files
+
+Browse workspace files directly from the dashboard. Navigate the folder structure, preview file contents, and understand how the workspace is organized without needing terminal access.
+
+### Scheduler
+
+Manage background services and scheduled routines. Shows all registered routines with core/custom badges, their schedules, enabled/disabled state, and last run status. Start, stop, or trigger routines from this page.
+
+### Audit Log
+
+Full audit trail of all actions: logins, config changes, routine executions, user management. Filterable by user, action, resource, and date range.
+
+### Config
+
+View and edit workspace configuration:
+- **CLAUDE.md** -- rendered markdown viewer
+- **ROUTINES.md** -- routine documentation
+- **ROADMAP.md** -- project roadmap
+- **.env editor** -- visual key-value editor for environment variables (see [env-editor.md](env-editor.md))
+- **Makefile targets** -- parsed list of all available `make` commands
+- **Commands** -- slash command definitions from `.claude/commands/`
+
+
+---
+
+# Users and Roles
+
+OpenClaude uses a role-based access control (RBAC) system. Every user has exactly one role, and each role defines what resources the user can access and what actions they can perform.
+
+## Default Roles
+
+Three built-in roles ship with every installation:
+
+| Role | Description |
+|------|-------------|
+| **admin** | Full access to all resources and actions |
+| **operator** | Can view and execute (run routines, use chat, manage services) but cannot manage users, audit, or config |
+| **viewer** | Read-only access to dashboards, reports, memory, and skills |
+
+Built-in roles cannot be deleted, but you can create custom roles with any permission combination.
+
+### Permission Comparison
+
+| Resource | admin | operator | viewer |
+|----------|-------|----------|--------|
+| chat | view, execute, manage | view, execute | -- |
+| services | view, execute, manage | view, execute | view |
+| systems | view, execute, manage | view, execute | view |
+| integrations | view, execute, manage | view, execute | view |
+| reports | view, manage | view | view |
+| agents | view, manage | view | view |
+| memory | view, manage | view | view |
+| skills | view, manage | view | view |
+| costs | view, manage | view | view |
+| config | view, manage | view | view |
+| users | view, manage | -- | -- |
+| audit | view | -- | -- |
+| files | view, manage | view | view |
+| templates | view | view | view |
+| routines | view, execute | view, execute | view |
+| scheduler | view, execute | view, execute | view |
+
+## Creating Users
+
+### Via the Dashboard
+
+1. Navigate to **Users** in the sidebar (requires `users:manage` permission)
+2. Click **Add User**
+3. Fill in:
+   - **Username** (unique, used for login)
+   - **Email** (optional)
+   - **Display name** (shown in the UI)
+   - **Password** (minimum 8 characters, hashed with bcrypt)
+   - **Role** (select from available roles)
+4. Click **Create**
+
+The new user can immediately log in at the dashboard URL.
+
+### First User (Setup Wizard)
+
+The very first user is created during the setup wizard when the dashboard starts with an empty database. This user is always assigned the `admin` role.
+
+## Custom Roles
+
+### Creating a Custom Role
+
+1. Go to **Roles** in the sidebar
+2. Click **Create Role**
+3. Enter a **name** and **description**
+4. Use the permission matrix to toggle actions per resource
+5. Click **Save**
+
+![Roles permission matrix](../imgs/doc-roles.png)
+
+### Permission Matrix
+
+Each cell in the matrix is a resource + action combination:
+
+**Resources** (16 total):
+`chat`, `services`, `systems`, `integrations`, `reports`, `agents`, `memory`, `skills`, `costs`, `config`, `users`, `audit`, `files`, `templates`, `routines`, `scheduler`
+
+**Actions** (3 types):
+- **view** -- read data, see pages
+- **execute** -- run routines, use chat, start/stop services
+- **manage** -- create, update, delete (users, config, memory files)
+
+Not all resources support all actions. For example, `audit` only supports `view`, and `templates` only supports `view`.
+
+### Example: "Finance Viewer" Role
+
+A role that can only see financial reports and costs:
+
+```json
+{
+  "reports": ["view"],
+  "costs": ["view"],
+  "integrations": ["view"]
+}
+```
+
+### Example: "Community Manager" Role
+
+A role that can run community routines and view reports:
+
+```json
+{
+  "reports": ["view"],
+  "routines": ["view", "execute"],
+  "services": ["view"],
+  "integrations": ["view"],
+  "memory": ["view"]
+}
+```
+
+## How Permissions Are Enforced
+
+Every API endpoint checks permissions using the `has_permission(role, resource, action)` function. If the current user's role does not include the required permission, the API returns `403 Forbidden`.
+
+The frontend also uses permissions to conditionally render sidebar items and action buttons -- if you lack `users:view`, the Users page does not appear in the navigation.
+
+## Audit Trail
+
+All user-related actions are logged to the audit trail:
+- User creation and updates
+- Role changes
+- Login attempts (successful and failed)
+- Config changes (including `.env` edits)
+
+View the full audit log at **Audit Log** in the sidebar (requires `audit:view`).
+
+
+---
+
+# Getting Started with OpenClaude
+
+## Prerequisites
+
+- **Claude Code CLI** — [Install Claude Code](https://claude.ai/claude-code)
+- **Python 3.11+** with [uv](https://docs.astral.sh/uv/)
+- **Node.js 18+** (for the dashboard)
+- **API keys** for integrations you want to use
+
+## Installation
+
+### 1. Clone and Setup
+
+```bash
+git clone https://github.com/EvolutionAPI/open-claude.git
+cd open-claude
+
+# Interactive setup wizard
+make setup
+# Or: python setup.py
+```
+
+The wizard asks for:
+- Your name and company
+- Timezone and language
+- Which agents to enable
+- Which integrations to configure
+
+It generates:
+- `config/workspace.yaml` — central config
+- `config/routines.yaml` — routine schedules
+- `.env` — API keys (fill in after setup)
+- `CLAUDE.md` — context file for Claude
+
+### 2. Configure API Keys
+
+Edit `.env` with your keys:
+
+```bash
+nano .env
+```
+
+At minimum, you need:
+- No keys required for basic operation (agents, skills work without integrations)
+- `DISCORD_BOT_TOKEN` — for community monitoring
+- `STRIPE_SECRET_KEY` — for financial routines
+- Social OAuth keys — via the dashboard Integrations page
+
+### 3. Start the Dashboard
+
+```bash
+make dashboard-app
+```
+
+Open http://localhost:8080 — the first run shows a setup wizard where you create your admin account and configure the workspace.
+
+![Dashboard](imgs/doc-overview.png)
+
+### 4. Start Automated Routines
+
+```bash
+make scheduler
+```
+
+This starts the scheduler that runs routines at their configured times (see `config/routines.yaml`).
+
+### 5. Use Claude Code
+
+Just open Claude Code in this directory. It reads `CLAUDE.md` automatically and has access to all agents and skills.
+
+```bash
+# Invoke agents directly
+/clawdia       # Operations hub
+/flux          # Financial analysis
+/atlas         # Project management
+/pulse         # Community pulse
+/pixel         # Social media
+
+# Or let Claude route automatically based on your request
+```
+
+## Next Steps
+
+- Read [Architecture](architecture.md) to understand how agents, skills, and routines work together
+- Browse `.claude/skills/CLAUDE.md` for the full skill index (~80 skills)
+- Check `ROUTINES.md` for routine documentation
+- Customize `config/routines.yaml` to adjust schedules
+
+
+---
+
+# Creating Routines
+
+Routines are automated tasks that run on a schedule — daily financial snapshots, community pulses, email triage, and more. Use the `create-routine` skill to generate everything you need.
+
+## Quick Start
+
+Just say:
+
+```
+create a routine
+```
+
+or describe what you want:
+
+```
+I want to automate a daily competitor check
+```
+
+Claude walks you through the setup.
+
+## What the Skill Asks
+
+The `create-routine` skill collects four things:
+
+1. **What** — What should the routine do? (e.g., "Check competitor pricing pages and summarize changes")
+2. **Which agent** — Who runs it? (e.g., Sage for strategy, Pulse for community)
+3. **When** — Schedule in cron format or natural language (e.g., "every weekday at 9am", "Mondays and Fridays at 8:30")
+4. **Output** — Where does the result go? (e.g., HTML report, markdown log, Telegram notification)
+
+## What Gets Generated
+
+After you answer, the skill creates:
+
+### 1. Python Script
+
+Located at `ADWs/routines/custom/<name>.py`:
+
+```python
+"""Daily Competitor Check — monitors competitor pricing and features."""
+# Auto-generated routine script
+# Agent: sage
+# Schedule: 0 9 * * 1-5
+
+import subprocess
+import sys
+
+def run():
+    prompt = """..."""
+    subprocess.run([sys.executable, "-m", "claude", ...])
+
+if __name__ == "__main__":
+    run()
+```
+
+### 2. Makefile Target
+
+Added to the project Makefile:
+
+```makefile
+competitor-check: ## Daily competitor check (sage)
+	@python3 ADWs/routines/custom/competitor-check.py
+```
+
+### 3. YAML Entry
+
+Added to `config/routines.yaml`:
+
+```yaml
+- name: competitor-check
+  description: Daily competitor pricing and feature check
+  agent: sage
+  schedule: "0 9 * * 1-5"
+  script: ADWs/routines/custom/competitor-check.py
+  make_target: competitor-check
+```
+
+## Example: Daily Competitor Check
+
+Here's the full walkthrough:
+
+**You:** "I want to automate a daily competitor check"
+
+**Claude:** "What exactly should this routine check?"
+
+**You:** "Monitor competitor websites for pricing changes, new features, and blog posts. Compare against our positioning."
+
+**Claude:** "Which agent should run it? I'd suggest Sage since this is strategic intelligence."
+
+**You:** "Yes, Sage."
+
+**Claude:** "When should it run?"
+
+**You:** "Every weekday at 9am"
+
+**Claude:** "Where should the output go?"
+
+**You:** "HTML report in the strategy folder, plus a Telegram summary"
+
+Claude then generates the script, Makefile target, and YAML entry. You can test it immediately:
+
+```bash
+make competitor-check
+```
+
+## Where Files Live
+
+| File | Location |
+|---|---|
+| Custom routine scripts | `ADWs/routines/custom/` |
+| Built-in routine scripts | `ADWs/routines/` |
+| Routine config | `config/routines.yaml` |
+| Makefile targets | `Makefile` |
+| Generated reports | Varies by agent (e.g., `09 Estrategia/`, `05 Financeiro/`) |
+
+## Testing
+
+After creation, test your routine:
+
+```bash
+# Run directly
+make <target-name>
+
+# Check logs
+make logs
+
+# See all available routines
+make help
+```
+
+## Managing Routines
+
+- **Edit schedule**: Update the cron expression in `config/routines.yaml`
+- **Disable**: Comment out or remove the YAML entry
+- **View metrics**: `make metrics` shows token usage and cost per routine
+- **Scheduler**: `make scheduler` runs all routines on their configured schedules
+
+
+---
+
+# Creating Skills
+
+Skills are reusable instruction sets that teach Claude how to perform specific tasks. OpenClaude includes 126 built-in skills — you can create your own.
+
+## Using the Skill Creator
+
+The fastest way:
+
+```
+create a skill for weekly team reports
+```
+
+The `skill-creator` plugin walks you through:
+
+1. **Name and prefix** — follows the naming convention (e.g., `prod-weekly-team-report`)
+2. **Description** — the trigger phrase that activates the skill
+3. **Instructions** — what Claude should do when the skill is invoked
+
+## Manual Creation
+
+Skills live in `.claude/skills/` organized by prefix.
+
+### File Structure
+
+```
+.claude/skills/
+  prefix-name/
+    SKILL.md
+```
+
+### SKILL.md Format
+
+```markdown
+---
+name: weekly-team-report
+description: Generate a weekly team status report from Linear, GitHub, and meeting notes. Use when the user says 'team report', 'weekly team update', or 'what did the team do this week'.
+---
+
+# Weekly Team Report
+
+## Steps
+
+1. Query Linear for completed issues this week
+2. Query GitHub for merged PRs
+3. Check meeting summaries from the week
+4. Generate a structured report with:
+   - Completed work by team member
+   - In-progress items
+   - Blockers
+   - Next week priorities
+
+## Output
+
+Generate an HTML report using the Evolution brand template.
+Save to `01 Daily Logs/` with filename `[C] Team Report YYYY-MM-DD.html`.
+
+## Rules
+
+- Always group by team member
+- Include links to Linear issues and GitHub PRs
+- Highlight blockers in red
+```
+
+### Key Points
+
+- **The `description` field is the trigger.** Claude matches user intent against skill descriptions to decide which skill to activate. Make it specific and include common trigger phrases.
+- **The `name` field** is the skill identifier.
+- **The body** contains the full instructions Claude follows when the skill is activated.
+
+## Naming Convention
+
+Skills use a prefix that indicates their category:
+
+| Prefix | Category | Examples |
+|---|---|---|
+| `prod-` | Productivity | `prod-morning`, `prod-eod` |
+| `fin-` | Finance | `fin-daily-pulse`, `fin-journal-entry` |
+| `social-` | Social media | `social-post-writer`, `social-analytics-report` |
+| `int-` | Integrations | `int-stripe`, `int-github-review` |
+| `pulse-` | Community | `pulse-daily`, `pulse-faq-sync` |
+| `sage-` | Strategy | `sage-okr-review`, `sage-strategy-digest` |
+| `evo-` | Evo Method | `evo-dev`, `evo-create-prd` |
+| `mkt-` | Marketing | `mkt-campaign-plan`, `mkt-seo-audit` |
+| `gog-` | Google | `gog-calendar`, `gog-email-triage` |
+| `obs-` | Obsidian | `obs-obsidian-cli`, `obs-defuddle` |
+| `discord-` | Discord | `discord-get-messages`, `discord-send-message` |
+
+## Example: Creating a "Weekly Report" Skill
+
+1. Create the directory:
+
+```bash
+mkdir -p .claude/skills/prod-weekly-report
+```
+
+2. Create `SKILL.md`:
+
+```markdown
+---
+name: weekly-report
+description: Generate a consolidated weekly report covering projects, finance, community, and strategy. Use when the user says 'weekly report', 'week summary', 'what happened this week'.
+---
+
+# Weekly Report Generator
+
+Consolidate data from all domains into a single weekly summary.
+
+## Data Sources
+
+1. **Projects** — Linear issues completed, GitHub PRs merged
+2. **Finance** — Stripe MRR, revenue, churn
+3. **Community** — Discord activity, support topics
+4. **Strategy** — OKR progress, key decisions
+
+## Output
+
+HTML report saved to `01 Daily Logs/`.
+```
+
+3. Test it — just describe the task:
+
+```
+generate a weekly report
+```
+
+Claude matches your intent to the skill description and follows the instructions.
+
+## Tips
+
+- **Be specific in descriptions.** "Generate financial reports" is too vague. "Generate financial statements (income statement, balance sheet, cash flow) with period-over-period comparison" tells Claude exactly when to activate.
+- **Include trigger phrases.** Add common ways users might ask for the skill: "Use when the user says 'X', 'Y', or 'Z'."
+- **Reference other skills.** Skills can call other skills — e.g., a weekly report skill can reference the Stripe integration skill for financial data.
+- **Test iteratively.** Create the skill, test it, refine the instructions based on the output quality.
+
+
+---
+
+# Daily Workflow
+
+A practical guide to running your business day with OpenClaude — from morning briefing to end-of-day wrap-up.
+
+## Morning (7:00 - 8:00)
+
+### 1. Good Morning Briefing
+
+```
+good morning
+```
+
+Clawdia generates your daily briefing:
+
+- Today's calendar events
+- Unread emails (prioritized)
+- Open tasks from Todoist
+- Yesterday's unfinished items
+- Key metrics snapshot
+
+### 2. Email Triage
+
+```
+triage my inbox
+```
+
+Clawdia reads unread emails, classifies by urgency, and proposes actions:
+
+- **Reply now** — urgent items needing immediate response
+- **Schedule** — items that need a response but not immediately
+- **Archive** — informational emails, no action needed
+- **Create task** — emails that represent work to be done
+
+### 3. Task Review
+
+```
+review todoist
+```
+
+Clawdia organizes your tasks: uncategorized items get sorted, priorities are set, and you get a clear list of what to tackle today.
+
+## During the Day (9:00 - 17:00)
+
+### Project Updates
+
+```
+/atlas check linear
+/atlas check github
+```
+
+Atlas shows sprint progress, issues in review, blockers, open PRs, and anything that needs your attention.
+
+### Community Monitoring
+
+```
+/pulse community pulse
+```
+
+Pulse analyzes Discord and WhatsApp activity: trending topics, unanswered questions, sentiment shifts, and contributor highlights.
+
+### Content Creation
+
+```
+/pixel write a post about [topic]
+```
+
+Pixel drafts platform-specific content following your brand voice. Supports LinkedIn, Twitter/X, Threads, and Bluesky.
+
+### Meetings
+
+Fathom syncs automatically every 30 minutes. After any meeting:
+
+```
+sync meetings
+```
+
+Get transcripts, summaries, and action items from your latest calls.
+
+### Ad-hoc Questions
+
+Just ask naturally:
+
+- "How's the MRR trending?" (Flux answers)
+- "Any blockers on EVO-589?" (Atlas checks Linear)
+- "What's the community sentiment today?" (Pulse analyzes)
+- "Draft a reply to that email from Marcelo" (Clawdia helps)
+
+## Evening (18:00 - 21:00)
+
+### Social Analytics (18:00)
+
+```
+social analytics
+```
+
+Pixel generates a cross-platform report: YouTube, Instagram, LinkedIn engagement and growth.
+
+### Licensing Report (18:30)
+
+```
+licensing daily
+```
+
+Atlas reports on open source telemetry: active instances, geographic distribution, version adoption.
+
+### Financial Pulse (19:00)
+
+```
+financial pulse
+```
+
+Flux queries Stripe and Omie to produce a financial health snapshot: MRR, charges, churn, receivables, payables.
+
+### Community Pulse (20:00)
+
+```
+community pulse
+```
+
+Pulse generates the full daily community report with Discord and WhatsApp analysis.
+
+### End of Day (21:00)
+
+```
+end of day
+```
+
+Clawdia wraps up: summarizes what was accomplished, logs decisions, notes pending items, and prepares context for tomorrow.
+
+### Dashboard (21:30)
+
+```
+dashboard
+```
+
+Clawdia consolidates all daily outputs into a unified 360-degree dashboard.
+
+## Weekly Cadence
+
+| Day | Routine | Agent |
+|---|---|---|
+| Monday | Linear review, GitHub review | Atlas |
+| Wednesday | Linear review, GitHub review | Atlas |
+| Friday | Financial weekly | Flux |
+| Friday | Licensing weekly | Atlas |
+| Friday | Weekly review | Clawdia |
+| Friday | Social analytics weekly | Pixel |
+| Friday | Strategy digest | Sage |
+| Sunday | Health check-in | Kai |
+
+### Friday Deep Dives
+
+Friday is the weekly synthesis day:
+
+```
+weekly review
+```
+
+Clawdia generates a comprehensive week-in-review. Follow up with:
+
+```
+strategy digest
+```
+
+Sage consolidates everything into strategic insights and recommendations.
+
+## Monthly Close (1st of each month)
+
+```
+monthly close
+```
+
+Flux kicks off the month-end closing process:
+
+- Simplified P&L
+- Pending reconciliations
+- Receivables and payables summary
+- Action items for the finance team
+
+Also runs:
+
+- Community monthly report (Pulse)
+- Licensing monthly report (Atlas)
+- Social analytics monthly (Pixel)
+
+## Automation
+
+All these routines can run automatically via the scheduler:
+
+```bash
+make scheduler
+```
+
+See [Creating Routines](creating-routines.md) for details on the schedule and customization.
+
+
+---
+
+# Initial Setup and Onboarding
+
+The `initial-setup` skill gives you a guided tour of OpenClaude when you first start using it.
+
+## How to Trigger
+
+Say any of these:
+
+```
+get started
+what can you do
+show me around
+help me get started
+onboarding
+```
+
+## What It Shows You
+
+### 1. Agent Tour
+
+A quick overview of all 9 agents and what they do:
+
+- **Clawdia** — your operational hub (calendar, emails, tasks)
+- **Flux** — financial intelligence (Stripe, Omie, reports)
+- **Atlas** — project management (GitHub, Linear, milestones)
+- **Pulse** — community monitoring (Discord, WhatsApp)
+- **Pixel** — social media (content creation, analytics)
+- **Sage** — strategic planning (OKRs, roadmap, competitive)
+- **Kai** — personal wellness (health, habits)
+- **Nex** — sales pipeline (proposals, qualification)
+- **Mentor** — education (Evo Academy, courses)
+
+### 2. Dashboard Introduction
+
+How to access and use the web dashboard:
+
+- Overview page with key metrics
+- Agent status and recent activity
+- Routine execution logs
+- Report viewer for generated HTML reports
+- Documentation browser
+
+### 3. Integration Status
+
+Which integrations are connected and ready:
+
+- Google (Calendar, Gmail)
+- GitHub, Linear
+- Stripe, Omie
+- Discord, WhatsApp, Telegram
+- YouTube, Instagram, LinkedIn
+
+### 4. Quick Wins
+
+Three things you can do right now to see value:
+
+1. **Say "good morning"** — get a full daily briefing
+2. **Say "community pulse"** — see what your community is discussing
+3. **Say "financial pulse"** — get a snapshot of your revenue and expenses
+
+## After Setup
+
+Once you've completed the tour, you're ready to:
+
+- Set up your daily routines (`create a routine`)
+- Configure the scheduler (`make scheduler`)
+- Start using agents for daily work
+- Explore the 126 available skills
+
+## Re-running Setup
+
+You can trigger the setup tour again anytime — just say "show me around" or "onboarding".
+
+
+---
+
+# Using Agents
+
+OpenClaude ships with 9 specialized agents, each owning a specific domain. You don't need to memorize commands — just describe what you need and Claude routes to the right agent.
+
+## Getting Started
+
+1. Open Claude Code in the workspace directory
+2. Start talking — agents activate automatically based on context
+
+## Quick Examples
+
+### Morning Briefing
+
+Just say:
+
+```
+good morning
+```
+
+Clawdia checks your calendar, emails, and tasks, then gives you a prioritized briefing for the day.
+
+### Financial Pulse
+
+```
+/flux financial pulse
+```
+
+Flux queries Stripe and Omie, then generates an HTML report with MRR, charges, churn, receivables, and payables.
+
+### GitHub Review
+
+```
+/atlas check github
+```
+
+Atlas reviews open PRs, community issues, stars/forks, and recent releases across all Evolution repositories.
+
+### Community Pulse
+
+```
+/pulse community pulse
+```
+
+Pulse reads Discord and WhatsApp messages from the last 24 hours, analyzes sentiment, identifies top topics, and flags unanswered support questions.
+
+### Social Media Content
+
+```
+/pixel write a post about our new release
+```
+
+Pixel drafts platform-specific posts (LinkedIn, Twitter/X, Threads) following your brand voice, content pillars, and audience context.
+
+### Strategy Digest
+
+```
+/sage strategy digest
+```
+
+Sage consolidates financial, product, community, and market data into a weekly strategic summary with insights and recommended actions.
+
+## How Agent Routing Works
+
+You don't have to use slash commands. Claude reads your intent and picks the right agent:
+
+| You say... | Agent activated |
+|---|---|
+| "check my inbox" | Clawdia |
+| "how's the MRR this month?" | Flux |
+| "any open PRs?" | Atlas |
+| "what's the community talking about?" | Pulse |
+| "draft a LinkedIn post" | Pixel |
+| "review our OKRs" | Sage |
+| "schedule a meeting" | Clawdia |
+| "who are our competitors?" | Sage |
+| "check my health data" | Kai |
+| "create a course module" | Mentor |
+
+## All 9 Agents
+
+| Agent | Command | Domain |
+|---|---|---|
+| **Clawdia** | `/clawdia` | Hub — calendar, emails, tasks, decisions |
+| **Flux** | `/flux` | Finance — cash flow, Stripe, Omie |
+| **Atlas** | `/atlas` | Projects — GitHub, Linear, milestones |
+| **Pulse** | `/pulse` | Community — Discord, WhatsApp, sentiment |
+| **Pixel** | `/pixel` | Social media — content, analytics |
+| **Sage** | `/sage` | Strategy — OKRs, roadmap, competitive |
+| **Kai** | `/kai` | Personal — health, habits, routine |
+| **Nex** | `/nex` | Sales — pipeline, proposals |
+| **Mentor** | `/mentor` | Courses — Evo Academy, modules |
+
+## Tips
+
+- **Agents share memory.** Context from one session is available in the next via the `memory/` directory. If you told Clawdia about a deadline, Sage can reference it when generating strategy.
+- **Combine agents naturally.** Say "check github and then write a post about the latest release" — Atlas reviews repos, then Pixel drafts the post.
+- **Agents respect your preferences.** All responses are in pt-BR, use Brasilia timezone, and follow your professional tone.
+- **Check agent definitions** in `.claude/agents/` to see exactly what each agent can do.
+
+
+---
+
+# Discord Integration
+
+Discord integration enables community monitoring, message retrieval, channel management, and automated pulse reports via the @pulse agent.
+
+## Setup
+
+### 1. Create a Discord Bot
+
+1. Go to [discord.com/developers/applications](https://discord.com/developers/applications)
+2. Click **New Application**, give it a name (e.g., "OpenClaude Bot")
+3. Go to **Bot** in the sidebar
+4. Click **Reset Token** and copy the token -- you will need this
+
+Under **Privileged Gateway Intents**, enable:
+- **Message Content Intent** (required to read messages)
+- **Server Members Intent** (optional, for member stats)
+
+### 2. Get Your Guild ID
+
+1. In Discord, go to **User Settings > Advanced** and enable **Developer Mode**
+2. Right-click your server name in the sidebar
+3. Click **Copy Server ID** -- this is your Guild ID
+
+### 3. Invite the Bot
+
+Build an invite URL with the required permissions:
+
+```
+https://discord.com/api/oauth2/authorize?client_id=YOUR_APP_ID&permissions=66560&scope=bot
+```
+
+Permission `66560` includes:
+- Read Messages / View Channels
+- Read Message History
+- Send Messages
+
+Replace `YOUR_APP_ID` with the Application ID from the developer portal (found on the General Information page).
+
+### 4. Configure .env
+
+```env
+DISCORD_BOT_TOKEN=your_bot_token_here
+DISCORD_GUILD_ID=your_guild_id_here
+```
+
+You can set these via the terminal or the dashboard .env editor (Config > .env).
+
+### 5. Test the Connection
+
+```bash
+make community
+```
+
+This runs the daily community pulse routine, which reads messages from all text channels in the last 24 hours and generates an HTML report. If the bot token and guild ID are correct, you will see output confirming the number of messages fetched.
+
+## What It Does
+
+The Discord integration powers several routines and skills:
+
+| Skill / Routine | What it does |
+|---|---|
+| `discord-get-messages` | Fetch messages from specific channels with date filters |
+| `discord-list-channels` | List all channels in the guild |
+| `discord-send-message` | Send messages to a channel |
+| `discord-manage-channel` | Update channel names, topics, permissions |
+| `discord-create-channel` | Create new text/voice/announcement channels |
+| `pulse-daily` | Daily community pulse -- sentiment, top topics, support questions |
+| `pulse-weekly` | Weekly aggregate with trends and contributor stats |
+| `pulse-monthly` | Monthly report with MAM, growth, and week-over-week analysis |
+| `pulse-faq-sync` | Extract recurring questions into the FAQ knowledge base |
+
+## Automated Routines
+
+These routines use Discord data and run on schedule:
+
+| Routine | Schedule | Make command |
+|---|---|---|
+| Community Pulse (daily) | 20:00 BRT | `make community` |
+| FAQ Sync | 20:15 BRT | `make faq` |
+| Community Weekly | Monday 09:30 BRT | `make community-week` |
+| Community Monthly | 1st of month | `make community-month` |
+
+## Channel Filtering
+
+By default, the community pulse reads all text channels. To filter specific channels, configure them in `config/workspace.yaml`:
+
+```yaml
+integrations:
+  discord:
+    guild_id: "your_guild_id"
+    channels:
+      include:
+        - general
+        - support
+        - feedback
+      exclude:
+        - bot-spam
+        - admin-only
+```
+
+## Troubleshooting
+
+**"401 Unauthorized"** -- Your bot token is invalid or expired. Generate a new one in the developer portal.
+
+**"Missing Access"** -- The bot is not in the server, or lacks the Read Messages permission. Re-invite with the correct permissions.
+
+**No messages returned** -- Check that **Message Content Intent** is enabled in the bot settings. Without it, message content is empty for bots in 100+ member servers.
+
+
+---
+
+# GitHub Integration
+
+GitHub is connected via both **MCP server** (for Claude Code sessions) and **CLI** (`gh` command, for automated routines). The @atlas agent uses it for PR reviews, issue tracking, release management, and code search.
+
+## MCP Setup
+
+The GitHub MCP server is configured in `.claude/settings.json`. If you selected GitHub during `make setup`, it is already configured.
+
+To verify or add it manually, ensure this entry exists in `.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "<your-token>"
+      }
+    }
+  }
+}
+```
+
+### Creating a Personal Access Token
+
+1. Go to [github.com/settings/tokens](https://github.com/settings/tokens)
+2. Click **Generate new token (classic)** or use **Fine-grained tokens**
+3. Select scopes:
+   - `repo` -- full repository access (PRs, issues, code)
+   - `read:org` -- read org membership (for team queries)
+   - `read:user` -- read user profile
+4. Copy the token and add it to the MCP config above
+
+For fine-grained tokens, grant access to the specific repositories you want to manage.
+
+## What It Can Do
+
+The GitHub MCP server exposes tools for:
+
+| Category | Operations |
+|---|---|
+| **Pull Requests** | List, search, create, update, merge, review, comment |
+| **Issues** | List, search, create, update, close, comment, assign |
+| **Releases** | List, get latest, get by tag |
+| **Code Search** | Search code across repositories |
+| **Repositories** | Search, create, fork, get file contents |
+| **Branches** | List, create |
+| **Commits** | List, get details |
+| **Teams** | List teams, get members |
+
+## Using GitHub in Claude Code
+
+Once the MCP is configured, you can interact with GitHub naturally:
+
+```
+> Show me open PRs on EvolutionAPI/evolution-api
+> What issues are assigned to me?
+> Search for usages of "handleWebhook" across our repos
+> Create a PR from this branch with a summary of changes
+```
+
+Claude routes these requests through the GitHub MCP tools automatically.
+
+## Automated Routines
+
+The @atlas agent runs GitHub reviews on schedule using the `int-github-review` skill:
+
+| Routine | Schedule | Make command |
+|---|---|---|
+| GitHub Review | Mon/Wed/Fri 09:15 BRT | `make github` |
+| Licensing Weekly | Friday 07:45 BRT | `make licensing-weekly` |
+
+The GitHub review checks:
+- Open PRs needing review
+- Community issues (bug reports, feature requests)
+- Recent releases
+- Stars and fork trends
+- Contributor activity
+
+## Testing
+
+```bash
+# Run the GitHub review routine
+make github
+
+# Or test MCP directly in Claude Code
+# (open Claude Code in the project directory)
+> List the 5 most recent PRs on EvolutionAPI/evolution-api
+```
+
+## gh CLI
+
+Some routines also use the `gh` CLI (GitHub's official command-line tool). It authenticates separately:
+
+```bash
+gh auth login
+```
+
+The `gh` CLI is used by the runner scripts for operations that are simpler via CLI than MCP (e.g., checking PR merge status, listing workflow runs).
+
+## Configuring Repositories
+
+Set the repositories to monitor in `config/workspace.yaml`:
+
+```yaml
+integrations:
+  github:
+    repos:
+      - EvolutionAPI/evolution-api
+      - EvolutionAPI/evo-ai
+      - EvolutionAPI/evolution-go
+```
+
+The GitHub review routine iterates over these repos and generates a consolidated report.
+
+## Troubleshooting
+
+**"Bad credentials"** -- Your personal access token is expired or revoked. Generate a new one and update `.claude/settings.json`.
+
+**MCP server not starting** -- Run `npx -y @modelcontextprotocol/server-github` manually to check for errors. Ensure Node.js 18+ is installed.
+
+**Rate limiting** -- GitHub allows 5,000 requests/hour for authenticated users. If you hit limits, the MCP returns a rate-limit error. Wait or use a token with higher limits (GitHub App installation token).
+
+
+---
+
+# Google Calendar + Gmail Integration
+
+Google Calendar and Gmail are connected via MCP servers, giving Claude Code native access to your calendar and inbox. The @clawdia agent uses these for morning briefings, email triage, scheduling, and follow-up tracking.
+
+## MCP Setup
+
+Both services use separate MCP servers. If you selected Google integrations during `make setup`, they are already configured in `.claude/settings.json`.
+
+### Google Calendar MCP
+
+```json
+{
+  "mcpServers": {
+    "google-calendar": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/google-calendar-mcp"],
+      "env": {
+        "GOOGLE_OAUTH_CREDENTIALS": "<path-to-credentials.json>",
+        "GOOGLE_OAUTH_TOKEN": "<path-to-token.json>"
+      }
+    }
+  }
+}
+```
+
+### Gmail MCP
+
+```json
+{
+  "mcpServers": {
+    "gmail": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/gmail-mcp"],
+      "env": {
+        "GOOGLE_OAUTH_CREDENTIALS": "<path-to-credentials.json>",
+        "GOOGLE_OAUTH_TOKEN": "<path-to-token.json>"
+      }
+    }
+  }
+}
+```
+
+## Google Cloud Setup
+
+Both MCPs share the same OAuth credentials.
+
+### 1. Create a Google Cloud Project
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com)
+2. Create a new project (or use an existing one)
+3. Enable the **Google Calendar API** and **Gmail API** from the API Library
+
+### 2. Create OAuth Credentials
+
+1. Go to **APIs & Services > Credentials**
+2. Click **Create Credentials > OAuth client ID**
+3. Application type: **Desktop app**
+4. Download the JSON file and save it (e.g., `~/.config/google/credentials.json`)
+
+### 3. Authorize on First Run
+
+The first time Claude Code invokes a Google MCP tool, it opens a browser window for OAuth consent. Sign in with your Google account and grant the requested permissions. The token is saved to the path specified in `GOOGLE_OAUTH_TOKEN`.
+
+## Calendar Operations
+
+The Google Calendar MCP provides these tools:
+
+| Tool | What it does |
+|---|---|
+| `gcal_list_events` | List upcoming events with date range filter |
+| `gcal_get_event` | Get details of a specific event |
+| `gcal_create_event` | Create a new calendar event |
+| `gcal_update_event` | Update an existing event |
+| `gcal_delete_event` | Delete an event |
+| `gcal_find_my_free_time` | Find available time slots |
+| `gcal_find_meeting_times` | Find times when multiple people are free |
+| `gcal_list_calendars` | List all calendars |
+| `gcal_respond_to_event` | Accept, decline, or tentatively accept |
+
+### Example Usage in Claude Code
+
+```
+> What's on my calendar today?
+> Find a 30-minute slot tomorrow afternoon
+> Create a meeting with Danilo on Friday at 2pm about sprint planning
+> Accept the invitation from Marcelo
+```
+
+## Gmail Operations
+
+The Gmail MCP provides these tools:
+
+| Tool | What it does |
+|---|---|
+| `gmail_search_messages` | Search inbox with Gmail query syntax |
+| `gmail_read_message` | Read a specific email |
+| `gmail_read_thread` | Read an entire email thread |
+| `gmail_create_draft` | Create a draft reply or new email |
+| `gmail_list_drafts` | List existing drafts |
+| `gmail_list_labels` | List all labels/folders |
+| `gmail_get_profile` | Get account info |
+
+### Example Usage in Claude Code
+
+```
+> Show me unread emails from today
+> Read the latest email from Samara
+> Draft a reply to the HostGator thread
+> Search for emails about "invoice" from last week
+```
+
+### Email Triage
+
+The `gog-email-triage` skill uses Gmail MCP to:
+1. Fetch unread emails from the last N hours
+2. Classify each by urgency (P0-P3) and category
+3. Propose actions: reply, archive, create task, schedule follow-up
+
+Run it manually or let the scheduler handle it:
+
+```bash
+make triage    # runs daily at 07:15 BRT
+```
+
+### Sending Emails
+
+Email sending requires explicit confirmation. The `gog-email-send` skill asks for the exact string `YES, SEND` before executing. All sends are logged to the audit trail.
+
+## Skills That Use Google
+
+| Skill | Service | What it does |
+|---|---|---|
+| `gog-calendar` | Calendar | View agenda, find slots, create events |
+| `gog-email-triage` | Gmail | Triage and prioritize inbox |
+| `gog-email-draft` | Gmail | Draft replies and new messages |
+| `gog-email-send` | Gmail | Send with explicit confirmation |
+| `gog-followups` | Gmail | Track stale threads, generate reminders |
+| `gog-tasks` | Tasks | Create and manage tasks from emails |
+| `prod-good-morning` | Both | Morning briefing with agenda + inbox summary |
+
+## Troubleshooting
+
+**"Token expired"** -- Delete the token file and restart Claude Code. It will re-prompt for OAuth consent.
+
+**"Access denied"** -- Ensure both Calendar API and Gmail API are enabled in your Google Cloud project.
+
+**"MCP server not found"** -- Run `npx -y @anthropic-ai/google-calendar-mcp` manually to verify it installs correctly. Requires Node.js 18+.
+
+
+---
+
+# Integrations Overview
+
+OpenClaude connects to external services through three mechanisms: **MCP servers**, **API clients**, and **OAuth flows**. Each integration provides data to one or more agents and routines.
+
+![Integrations overview](../imgs/doc-integrations.png)
+
+## Integration Types
+
+### MCP Servers
+
+Model Context Protocol servers run as sidecar processes alongside Claude Code. They expose tools that Claude can call natively during a session.
+
+| Integration | MCP Server | Used By |
+|---|---|---|
+| Google Calendar | `google-calendar` | @clawdia (agenda, scheduling) |
+| Gmail | `gmail` | @clawdia (triage, drafts, send) |
+| GitHub | `github` | @atlas (PRs, issues, releases) |
+| Linear | `linear-server` | @atlas (issues, sprints) |
+| Telegram | `plugin:telegram` | @clawdia (notifications, bot) |
+| Canva | `canva` | @pixel (designs, presentations) |
+| Notion | `claude_ai_Notion` | Knowledge base |
+
+MCP servers are configured in `.claude/settings.json`. Claude Code starts them automatically when their tools are needed.
+
+### API Clients
+
+Direct HTTP calls to service APIs, executed by skills and routines via Python scripts.
+
+| Integration | Used By | Skills |
+|---|---|---|
+| Stripe | @flux | `int-stripe`, `fin-daily-pulse`, `fin-weekly-report` |
+| Omie | @flux | `int-omie`, `fin-monthly-close-kickoff` |
+| Discord | @pulse | `discord-get-messages`, `pulse-daily`, `pulse-weekly` |
+| Fathom | @clawdia | `int-fathom`, `int-sync-meetings` |
+| YouTube | @pixel | `int-youtube`, `social-youtube-report` |
+| Instagram | @pixel | `int-instagram`, `social-instagram-report` |
+| LinkedIn | @pixel | `int-linkedin`, `social-linkedin-report` |
+| WhatsApp | @pulse | `int-whatsapp`, `pulse-daily` |
+| Licensing | @atlas | `int-licensing`, `prod-licensing-daily` |
+
+API clients read credentials from `.env` at runtime.
+
+### OAuth Flows
+
+Social media accounts (YouTube, Instagram, LinkedIn) use OAuth for authentication. The dashboard provides a built-in OAuth flow:
+
+1. Go to **Integrations** in the dashboard
+2. Click **Connect** on the platform you want
+3. Complete the OAuth consent screen
+4. Tokens are saved to `.env` automatically
+
+OAuth requires client credentials configured in `.env`:
+
+```env
+# YouTube
+YOUTUBE_OAUTH_CLIENT_ID=...
+YOUTUBE_OAUTH_CLIENT_SECRET=...
+
+# Instagram / Meta
+META_APP_ID=...
+META_APP_SECRET=...
+
+# LinkedIn
+LINKEDIN_CLIENT_ID=...
+LINKEDIN_CLIENT_SECRET=...
+```
+
+## Checking Integration Status
+
+### Dashboard
+
+The **Integrations** page shows a status card for each service:
+- **Green** -- connected and working
+- **Yellow** -- credentials present but not verified
+- **Red** -- missing credentials
+
+### CLI
+
+```bash
+# Test a specific integration
+make community     # tests Discord
+make fin-pulse     # tests Stripe + Omie
+make github        # tests GitHub
+make social        # tests YouTube + Instagram + LinkedIn
+```
+
+## Configuration
+
+All integration credentials live in `.env`. The setup wizard (`make setup`) generates this file with empty placeholders for each enabled integration.
+
+You can edit credentials through:
+- The dashboard **.env editor** (Config > .env)
+- Directly in the terminal: `nano .env`
+
+See individual integration guides for setup steps:
+- [Discord](discord.md)
+- [Stripe](stripe.md)
+- [GitHub](github.md)
+- [Google Calendar + Gmail](google.md)
+
+## Multi-Account Support
+
+Social media integrations support multiple accounts per platform using a numbered pattern:
+
+```env
+SOCIAL_YOUTUBE_1_LABEL=Main Channel
+SOCIAL_YOUTUBE_1_ACCESS_TOKEN=ya29...
+SOCIAL_YOUTUBE_1_CHANNEL_ID=UC...
+
+SOCIAL_YOUTUBE_2_LABEL=Second Channel
+SOCIAL_YOUTUBE_2_ACCESS_TOKEN=ya29...
+SOCIAL_YOUTUBE_2_CHANNEL_ID=UC...
+```
+
+Analytics skills automatically aggregate across all connected accounts.
+
+
+---
+
+# Stripe Integration
+
+Stripe integration provides financial metrics to the @flux agent: MRR tracking, charge monitoring, churn detection, and subscription analytics.
+
+## Setup
+
+### 1. Get Your API Key
+
+1. Go to [dashboard.stripe.com](https://dashboard.stripe.com)
+2. Navigate to **Developers > API Keys**
+3. Copy your **Secret key** (starts with `sk_live_` or `sk_test_`)
+
+Use the test key (`sk_test_`) during setup to verify the integration without affecting live data.
+
+### 2. Configure .env
+
+```env
+STRIPE_SECRET_KEY=sk_live_your_key_here
+```
+
+Set this via terminal (`nano .env`) or the dashboard .env editor.
+
+### 3. Test the Connection
+
+```bash
+make fin-pulse
+```
+
+This runs the daily financial pulse routine. It queries Stripe for recent charges, subscriptions, and MRR, then generates an HTML report. If the key is valid, you will see a report with your financial data.
+
+## What It Tracks
+
+The Stripe integration provides data for these metrics:
+
+| Metric | Description |
+|---|---|
+| **MRR** | Monthly Recurring Revenue from active subscriptions |
+| **New charges** | Charges created in the period |
+| **Failed payments** | Charges that failed or were declined |
+| **Refunds** | Refunds processed in the period |
+| **Churn** | Subscriptions canceled in the period |
+| **Active subscriptions** | Count of currently active subscriptions |
+| **Customer count** | Total and new customers |
+
+## Skills That Use Stripe
+
+| Skill | What it does |
+|---|---|
+| `int-stripe` | Direct Stripe API queries -- list charges, customers, subscriptions, invoices, products, prices. Supports filtering and pagination. |
+| `fin-daily-pulse` | Daily snapshot: MRR, charges, failures, churn |
+| `fin-weekly-report` | Weekly consolidation: revenue, expenses, cash flow projection |
+| `fin-monthly-close-kickoff` | Month-end close: P&L, reconciliations, action items |
+| `fin-financial-statements` | Income statement, balance sheet, cash flow with variance analysis |
+
+## Automated Routines
+
+| Routine | Schedule | Make command |
+|---|---|---|
+| Financial Pulse | 19:00 BRT daily | `make fin-pulse` |
+| Financial Weekly | Friday 07:30 BRT | `make fin-weekly` |
+| Monthly Close Kickoff | 1st of month | `make fin-close` |
+
+## Stripe + Omie
+
+For a complete financial picture, OpenClaude combines Stripe data (revenue, subscriptions) with Omie ERP data (expenses, invoices, accounts payable/receivable). The `fin-daily-pulse` skill queries both sources.
+
+If you only use Stripe (no Omie), the financial routines still work -- they show revenue metrics and skip the expense/ERP sections.
+
+## Using the int-stripe Skill Directly
+
+You can query Stripe interactively through Claude Code:
+
+```
+> List my last 10 charges
+```
+
+Claude uses the `int-stripe` skill to call the Stripe API and return formatted results. Supported operations:
+
+- List charges, customers, invoices, subscriptions
+- Filter by date range, status, amount
+- Create and update customers
+- Process refunds
+- List products and prices
+
+## Security Notes
+
+- The secret key has full access to your Stripe account. Use a **restricted key** if you only need read access (Developers > API Keys > Create restricted key).
+- Never commit `.env` to version control. The `.gitignore` already excludes it.
+- The dashboard masks the key in the .env editor (displayed as `*****`).
+
+
+---
+
+# What is OpenClaude
+
+## The Problem
+
+Running a business means juggling dozens of tools, dashboards, and communication channels every day. Email, calendar, project management, financial tracking, community moderation, social media — each one demands attention, and none of them talk to each other.
+
+Most "AI assistants" are chatbots. You ask a question, you get an answer, and then you're back to manually copying data between tools. That doesn't scale.
+
+## What OpenClaude Is
+
+OpenClaude is a multi-agent workspace built on top of [Claude Code](https://code.claude.com/docs/overview). It turns a single Claude Code installation into a team of specialized agents that handle real operational work — not just answer questions.
+
+Each agent owns a domain (finance, projects, community, social media, strategy, sales, courses, personal wellness) and has the skills, memory, and integrations needed to operate independently. A scheduler runs routines on a daily, weekly, and monthly cadence, producing real outputs: HTML reports, triaged inboxes, synced meeting notes, financial snapshots, community health checks.
+
+**This is not a chatbot.** It's an operating layer for your business.
+
+## Who It's For
+
+- **Solo founders** who need to run operations without hiring an ops team
+- **CEOs of small companies** managing multiple products and communities
+- **Small teams** that want automated reporting and coordination
+- **Developers** who already use Claude Code and want to extend it
+
+## How It's Different
+
+| Chatbot | OpenClaude |
+|---------|------------|
+| You ask, it answers | Agents run routines on schedule |
+| Forgets between sessions | Persistent memory across sessions |
+| One conversation thread | 9 agents with isolated domains |
+| No integrations | 18+ integrations (Google, GitHub, Stripe, Discord, etc.) |
+| Text output | HTML reports, dashboards, structured data |
+| Manual every time | Automated daily/weekly/monthly workflows |
+
+## Key Concepts
+
+### Agents
+
+Nine specialized agents, each with a system prompt, slash command, persistent memory, and domain-specific skills:
+
+| Agent | Domain | Command |
+|-------|--------|---------|
+| Clawdia | Operations — agenda, emails, tasks, decisions | `/clawdia` |
+| Flux | Finance — Stripe, ERP, cash flow, reports | `/flux` |
+| Atlas | Projects — Linear, GitHub, sprints | `/atlas` |
+| Pulse | Community — Discord, WhatsApp, sentiment | `/pulse` |
+| Pixel | Social media — content, calendar, analytics | `/pixel` |
+| Sage | Strategy — OKRs, roadmap, prioritization | `/sage` |
+| Nex | Sales — pipeline, proposals, qualification | `/nex` |
+| Mentor | Courses — learning paths, modules | `/mentor` |
+| Kai | Personal — health, habits, routine | `/kai` |
+
+### Skills
+
+~80 reusable capabilities organized by prefix (`fin-`, `social-`, `int-`, `prod-`, etc.). Skills are markdown files that teach agents how to perform specific tasks — no plugins, no code.
+
+### Routines
+
+Automated workflows (ADWs) that run on schedule via a Python scheduler. Morning briefings, email triage, financial snapshots, community monitoring, end-of-day consolidation. Each routine logs execution metrics (tokens, cost, duration) in JSONL format.
+
+### Dashboard
+
+A web UI (React + Flask) for managing everything: view reports, start/stop services, browse agents and skills, manage users and roles, and interact with Claude Code through an embedded terminal.
+
+![Web Dashboard](imgs/doc-overview.png)
+
+### Memory
+
+Two-tier persistence. `CLAUDE.md` holds working memory (who you are, active projects, key people). The `memory/` directory stores deeper context (people profiles, glossary, project history). Both survive across sessions.
+
+## Open Source
+
+OpenClaude is MIT-licensed, built by [Evolution Foundation](https://evolutionfoundation.com.br). The source is at [github.com/EvolutionAPI/open-claude](https://github.com/EvolutionAPI/open-claude).
+
+It's designed to be forked and adapted. Add your own agents, skills, routines, and integrations. The architecture is markdown-first — no complex plugin systems, just files that Claude Code reads.
+
+
+---
+
+# Case Study: Evolution Foundation
+
+## The Company
+
+[Evolution Foundation](https://evolutionfoundation.com.br) builds open source WhatsApp and messaging integration tools. Their main product, [Evolution API](https://github.com/EvolutionAPI/evolution-api), powers thousands of messaging workflows worldwide. The company has a 7,000+ member community across Discord and WhatsApp, multiple active repositories on GitHub, Stripe billing, and a growing open source user base.
+
+The CEO runs operations, development coordination, community management, financial oversight, social media, and strategy — with a small distributed team.
+
+## The Setup
+
+Evolution Foundation runs OpenClaude with all 9 agents active:
+
+- **Clawdia** — daily ops, email, calendar, task management
+- **Flux** — Stripe revenue tracking, ERP integration (Omie), financial reports
+- **Atlas** — GitHub PRs, Linear issues, sprint coordination
+- **Pulse** — Discord and WhatsApp community monitoring
+- **Pixel** — YouTube, Instagram, LinkedIn analytics and content
+- **Sage** — OKRs, strategy digests, competitive analysis
+- **Nex** — sales pipeline and proposals
+- **Mentor** — Evo Academy course planning
+- **Kai** — personal health and habit tracking
+
+Connected integrations: Google Calendar, Gmail, GitHub, Linear, Discord, Telegram, Stripe, Omie, Fathom, Todoist, YouTube, Instagram, LinkedIn, and the Evolution Licensing API.
+
+## A Typical Day
+
+The scheduler runs 11+ daily routines from early morning to late evening:
+
+### Morning Block (6:50 AM - 7:15 AM)
+
+| Time | Routine | What happens |
+|------|---------|-------------|
+| 6:50 | Review Todoist | Clawdia organizes and prioritizes tasks, flags overdue items |
+| 7:00 | Morning Briefing | Calendar review, email summary, task priorities, meeting prep |
+| 7:15 | Email Triage | Classify inbox by urgency, draft replies for high-priority messages |
+
+By 7:30 AM, the CEO opens a single morning report and knows exactly what needs attention.
+
+### Throughout the Day
+
+Every 30 minutes, meetings are synced from Fathom — transcripts are processed, action items extracted, and tasks created automatically.
+
+### Evening Block (6:00 PM - 9:30 PM)
+
+| Time | Routine | What happens |
+|------|---------|-------------|
+| 6:00 PM | Social Analytics | Cross-platform report: YouTube, Instagram, LinkedIn engagement |
+| 6:30 PM | Licensing Daily | Open source telemetry: active instances, geo distribution, versions |
+| 7:00 PM | Financial Pulse | Stripe MRR, charges, churn + Omie receivables/payables |
+| 8:00 PM | Community Pulse | Discord and WhatsApp activity, sentiment, support questions |
+| 8:15 PM | FAQ Sync | Update community FAQ from recurring questions |
+| 9:00 PM | End of Day | Consolidate everything into a daily log |
+| 9:15 PM | Memory Sync | Update persistent memory with today's learnings |
+| 9:30 PM | Dashboard | Generate unified 360-degree HTML dashboard |
+
+## Weekly Cadence
+
+Every Friday, a deeper analysis cycle runs:
+
+- **Financial Weekly** — week-over-week revenue, expenses, cash flow projection
+- **Licensing Weekly** — open source growth trends, version adoption curves
+- **Weekly Review** — consolidated review of the entire week
+- **Social Analytics Weekly** — content performance, audience growth
+- **Trends Analysis** — cross-domain pattern detection (community + finance + product)
+- **Strategy Digest** — strategic insights from all data sources
+
+Monday/Wednesday/Friday:
+- **Linear Review** — sprint progress, blockers, issues in review
+- **GitHub Review** — open PRs, community contributions, release status
+
+Sunday:
+- **Health Check-in** — personal wellness tracking via Kai
+
+## Monthly Close
+
+On the 1st of each month:
+- **Monthly Close Kickoff** — Flux initiates the financial close process with checklists and P&L
+- **Community Monthly** — Pulse generates a full monthly community report with MAM and growth trends
+- **Licensing Monthly** — Atlas produces a 30-day open source growth analysis
+- **Social Analytics Monthly** — Pixel consolidates monthly cross-platform performance
+
+## Results
+
+After running OpenClaude for daily operations:
+
+- **30+ hours saved per week** on routine operational tasks
+- **Zero missed follow-ups** — every meeting action item becomes a tracked task
+- **Real-time financial health** — no more waiting for monthly reports to spot problems
+- **Community issues caught early** — sentiment shifts and recurring questions surface in hours, not weeks
+- **Consistent reporting** — every day produces the same structured outputs, regardless of how busy the day was
+
+The key insight: the value isn't in any single routine. It's in the compounding effect of having every domain monitored, every day, with memory that carries forward. Problems don't slip through cracks when 9 agents are watching 9 domains on schedule.
+
+
+---
+
+# A Morning with OpenClaude
+
+What does it actually look like to start your day with OpenClaude running? Here's a walkthrough of a typical morning, from waking up to being fully productive.
+
+## 7:00 AM — "Good morning"
+
+You open Claude Code in your terminal and type two words: "good morning."
+
+Clawdia, the operations agent, takes over. Behind the scenes, the scheduler has already run the Todoist review at 6:50 AM, so task data is fresh. Now Clawdia pulls together:
+
+- **Calendar** — today's meetings, prep notes for the first one
+- **Email** — unread count, anything flagged as urgent overnight
+- **Tasks** — top priorities for today, anything overdue
+- **Yesterday's log** — what you said you'd do, what actually happened
+
+The output is a structured morning briefing. Not a wall of text — a prioritized list of what matters today.
+
+**Example output:**
+
+> 3 meetings today (first at 10:00 — grooming with Danilo, prep: review EVO-589).
+> 7 unread emails — 2 urgent (Stripe webhook failure alert, partner contract from Thais).
+> Top tasks: review PR #412, respond to HostGator proposal, prep Summit timeline.
+> Yesterday: completed 4/6 planned tasks. Carried over: LinkedIn post draft, Academy outline.
+
+## 7:15 AM — Email Triage
+
+The email triage routine kicks in automatically (or you trigger it with `make triage`). Clawdia reads your Gmail inbox and classifies each message:
+
+- **Urgent / Action needed** — flagged with suggested response
+- **FYI / Low priority** — summarized in one line
+- **Spam / Marketing** — noted for archive
+
+For urgent emails, Clawdia drafts a reply. You review it, adjust if needed, and confirm with "YES, SEND" — or save it as a draft to refine later.
+
+The triage doesn't just list emails. It connects them to context: "This email from Samara references the invoice you discussed in yesterday's Fathom meeting." That's persistent memory at work.
+
+## 7:30 AM — Meeting Sync
+
+Every 30 minutes throughout the day, the meeting sync routine checks Fathom for new recordings. If you had calls yesterday evening or early this morning, the transcripts are already processed.
+
+For each meeting, you get:
+- A concise summary (not the full transcript)
+- Action items extracted and attributed to people
+- Tasks created in Todoist with proper priority and category
+- Meeting notes saved to the workspace
+
+No more watching recordings to remember what was decided. No more "I think we agreed to..." in follow-up emails.
+
+## 8:00 AM — Project Check
+
+You ask: "What's the status on our sprint?" Atlas, the projects agent, checks Linear and GitHub:
+
+- **Linear** — current sprint progress, issues in review, blockers, who's assigned to what
+- **GitHub** — open PRs waiting for review, community issues that need triage, CI status
+
+Atlas knows your team. When it says "Guilherme has 3 PRs waiting for review," it's pulling from the people memory, not just API data. It knows Guilherme is backend, so those PRs are likely Evolution API core changes.
+
+## 8:30 AM — Ready to Work
+
+In under 90 minutes, without opening a single dashboard or scrolling through any inbox manually, you know:
+
+1. What's on your calendar and what to prep
+2. Which emails need replies (and have drafts ready)
+3. What happened in yesterday's meetings and what follow-ups are pending
+4. Where your sprint stands and what's blocked
+5. Your prioritized task list for the day
+
+You pick the first task and start working. When someone asks about a community issue at 2 PM, Pulse has the context. When finance questions come up at 4 PM, Flux has today's numbers. When you wrap up at 9 PM, the end-of-day routine logs everything automatically.
+
+## What Makes This Different
+
+This isn't "asking AI for help." The routines ran before you even opened your laptop. The memory persisted from yesterday. The agents already know your team, your projects, your preferences.
+
+You didn't configure a workflow. You said "good morning" and got a briefing that accounts for your calendar, your email, your tasks, your meetings, and your priorities — cross-referenced against persistent memory about your company, your team, and your projects.
+
+That's the difference between a chatbot and an operating layer.
+
+
+---
+
+# CLAUDE.md Guide
+
+## What It Is
+
+`CLAUDE.md` is a context file that Claude Code reads automatically at the start of every session. It's the primary mechanism for giving Claude persistent knowledge about you, your company, your projects, and your preferences.
+
+In OpenClaude, `CLAUDE.md` is generated by the setup wizard (`make setup`). `setup.py` generates CLAUDE.md inline — no template file needed. It serves as the "working memory" layer — the hot cache that every agent reads before doing anything.
+
+## What Goes In It
+
+The generated file includes these sections:
+
+### Identity
+
+Who you are, your company, your role, your timezone, your email addresses.
+
+```markdown
+## Who I Am
+**Name:** Davidson Gomes
+**Company:** Evolution API LTDA
+**Timezone:** Brasilia (BRT, UTC-3)
+```
+
+### Folder Structure
+
+Where things live in the workspace. Agents use this to know where to read from and write to.
+
+### Active Projects
+
+Current projects with status. Agents reference this to understand what's in progress.
+
+### Agents
+
+The full agent table — names, commands, domains. This tells Claude which agent to route requests to.
+
+### Routines
+
+Schedule of all automated routines with times and responsible agents.
+
+### Skills
+
+Skill index organized by prefix. Agents use this to find the right skill for a task.
+
+### Integrations
+
+Connected services (Google Calendar, Gmail, GitHub, Stripe, etc.) and what each one does.
+
+### Memory (Hot Cache)
+
+Key people, terms, and preferences that agents need frequently. This avoids looking up the same information every session.
+
+### Behavior Rules
+
+What Claude should and should not do — language preferences, file conventions, permission boundaries.
+
+## How Agents Use It
+
+Every agent reads `CLAUDE.md` at session start. This gives them:
+
+1. **Context** — who you are, what you're working on, who your team is
+2. **Routing** — which agent handles which domain
+3. **Conventions** — file naming, language, tone preferences
+4. **Integration awareness** — what tools are connected and available
+
+When you type `/flux` to invoke the finance agent, Flux already knows your company name, your Stripe setup, your ERP system, and your financial conventions — because it read `CLAUDE.md`.
+
+## The Two-Tier Memory System
+
+`CLAUDE.md` is tier one — fast, always loaded, limited in size.
+
+The `memory/` directory is tier two — deeper, loaded on demand:
+
+```
+memory/
+  people/        — detailed profiles of team members
+  glossary.md    — internal terms and acronyms
+  projects/      — project history and decisions
+  trends/        — weekly trend snapshots
+```
+
+Agents load from `memory/` when they need detail beyond what's in the hot cache. For example, `CLAUDE.md` might say "Guilherme — Dev backend (Brius)" while `memory/people/guilherme.md` has his full profile, communication preferences, and recent work.
+
+## Best Practices
+
+**Keep it concise.** `CLAUDE.md` is loaded every session. If it's too long, it wastes context window. Put detailed information in `memory/` files instead.
+
+**Use tables for structured data.** People, projects, agents, integrations — tables are dense and scannable.
+
+**Update it as things change.** When a project status changes or a new team member joins, update the relevant section. The memory sync routine (`make memory`) does this automatically at end of day.
+
+**Don't put secrets in it.** API keys go in `.env`. `CLAUDE.md` is checked into version control.
+
+**Prefix Claude-created files with [C].** This convention (defined in `CLAUDE.md` itself) lets you distinguish between files you wrote and files Claude generated.
+
+## Regenerating
+
+To regenerate `CLAUDE.md`:
+
+```bash
+make setup
+```
+
+The wizard runs `setup.py`, which generates CLAUDE.md inline from `config/workspace.yaml` values — no template file needed. If you've manually edited `CLAUDE.md`, back it up first — setup overwrites it.
+
+## Related Files
+
+| File | Purpose |
+|------|---------|
+| `setup.py` | Generates CLAUDE.md inline (no template file needed) |
+| `config/workspace.yaml` | Values used to populate CLAUDE.md |
+| `memory/` | Tier-two persistent memory (loaded on demand) |
+| `.claude/agent-memory/` | Per-agent memory files |
+
+
+---
+
+# Environment Variables Reference
+
+All environment variables are defined in `.env` (generated by `make setup`). See `.env.example` for the template.
+
+## Omie ERP
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `OMIE_APP_KEY` | For finance routines | Omie API app key |
+| `OMIE_APP_SECRET` | For finance routines | Omie API app secret |
+
+**How to get**: Omie dashboard > Settings > Integrations > API. Create an app to get the key and secret.
+
+## Stripe
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `STRIPE_SECRET_KEY` | For finance routines | Stripe secret API key (starts with `sk_live_` or `sk_test_`) |
+
+**How to get**: [dashboard.stripe.com](https://dashboard.stripe.com) > Developers > API Keys. Use the secret key (not the publishable key).
+
+## Todoist
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TODOIST_API_TOKEN` | For task management | Todoist personal API token |
+
+**How to get**: [app.todoist.com](https://app.todoist.com) > Settings > Integrations > Developer > API Token.
+
+## Fathom (Meetings)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `FATHOM_API_KEY` | For meeting sync | Fathom API key |
+
+**How to get**: [fathom.video](https://fathom.video) > Settings > API. Generate an API key.
+
+## Discord
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DISCORD_BOT_TOKEN` | For community routines | Discord bot token |
+| `DISCORD_GUILD_ID` | For community routines | Server (guild) ID |
+
+**How to get**:
+- Bot token: [discord.com/developers](https://discord.com/developers) > New Application > Bot > Token
+- Guild ID: Enable Developer Mode in Discord settings, then right-click your server > Copy Server ID
+
+## Telegram
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TELEGRAM_BOT_TOKEN` | For notifications | Bot token from @BotFather |
+| `TELEGRAM_CHAT_ID` | For notifications | Chat ID to send messages to |
+
+**How to get**:
+- Bot token: Message [@BotFather](https://t.me/BotFather) on Telegram, use `/newbot`
+- Chat ID: Send `/start` to your bot, then call `https://api.telegram.org/bot<TOKEN>/getUpdates` to find the chat ID
+
+## YouTube OAuth
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `YOUTUBE_OAUTH_CLIENT_ID` | For YouTube analytics | Google OAuth client ID |
+| `YOUTUBE_OAUTH_CLIENT_SECRET` | For YouTube analytics | Google OAuth client secret |
+
+**How to get**: [Google Cloud Console](https://console.cloud.google.com) > APIs & Services > Credentials > Create OAuth Client ID. Enable the YouTube Data API v3.
+
+## Meta / Instagram OAuth
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `META_APP_ID` | For Instagram analytics | Facebook/Meta app ID |
+| `META_APP_SECRET` | For Instagram analytics | Facebook/Meta app secret |
+
+**How to get**: [developers.facebook.com](https://developers.facebook.com) > My Apps > Create App > Settings > Basic. Enable the Instagram Graph API.
+
+## LinkedIn OAuth
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `LINKEDIN_CLIENT_ID` | For LinkedIn analytics | LinkedIn app client ID |
+| `LINKEDIN_CLIENT_SECRET` | For LinkedIn analytics | LinkedIn app client secret |
+
+**How to get**: [linkedin.com/developers](https://linkedin.com/developers) > My Apps > Create App > Auth tab. Request the `r_organization_social` and `r_liteprofile` scopes.
+
+## Social Accounts
+
+Social media accounts are managed via the dashboard Integrations page after OAuth setup. The tokens are stored with this pattern:
+
+```env
+SOCIAL_{PLATFORM}_{N}_{FIELD}
+```
+
+Examples:
+
+```env
+SOCIAL_YOUTUBE_1_LABEL=My Channel
+SOCIAL_YOUTUBE_1_ACCESS_TOKEN=ya29...
+SOCIAL_YOUTUBE_1_CHANNEL_ID=UC...
+
+SOCIAL_INSTAGRAM_1_LABEL=Main Profile
+SOCIAL_INSTAGRAM_1_ACCESS_TOKEN=EAA...
+SOCIAL_INSTAGRAM_1_USER_ID=17841...
+
+SOCIAL_LINKEDIN_1_LABEL=Company Page
+SOCIAL_LINKEDIN_1_ACCESS_TOKEN=AQ...
+SOCIAL_LINKEDIN_1_ORG_ID=12345
+```
+
+These are populated automatically when you connect accounts through the dashboard.
+
+## Required vs Optional
+
+**No variable is strictly required** -- OpenClaude works with whatever integrations you enable. But specific routines need their corresponding keys:
+
+| Routine | Required Variables |
+|---------|-------------------|
+| Morning briefing | None (uses Google MCP for calendar/email) |
+| Financial pulse | `STRIPE_SECRET_KEY`, `OMIE_APP_KEY`, `OMIE_APP_SECRET` |
+| Community pulse | `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID` |
+| Social analytics | Social account tokens (via dashboard) |
+| Meeting sync | `FATHOM_API_KEY` |
+| Telegram notifications | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` |
+| Task management | `TODOIST_API_TOKEN` |
+| Licensing | No env vars (uses the licensing API directly) |
+
+Google Calendar and Gmail are connected via MCP servers configured in Claude Code settings, not through `.env` variables.
+
+
+---
+
+# Licensing
+
+## Overview
+
+OpenClaude includes a lightweight licensing system that registers your instance with Evolution Foundation's server. This is primarily for telemetry — understanding how the open source project is used, where it's deployed, and which versions are active.
+
+## How It Works
+
+### Registration
+
+On first setup (`make setup`), your instance is silently registered with Evolution Foundation's licensing server. This happens automatically in the background — you don't need to enter a license key or create an account.
+
+The registration creates a unique `instance_id` for your installation. This ID is stored locally in your config and used for all subsequent communication with the licensing server.
+
+### Heartbeat
+
+After registration, your instance sends a heartbeat to the licensing server every 5 minutes. The heartbeat confirms the instance is active and reports basic telemetry.
+
+The heartbeat runs as part of the scheduler process. If the scheduler is stopped, heartbeats stop — nothing breaks, the instance simply appears offline in telemetry.
+
+### What Data Is Collected
+
+Each heartbeat includes:
+
+| Field | Description |
+|-------|-------------|
+| `instance_id` | Unique identifier for this installation |
+| `geo` | Approximate geographic location (country/region from IP) |
+| `version` | OpenClaude version running |
+| `uptime` | How long the instance has been running |
+
+No personal data, no API keys, no workspace content, no conversation data. The telemetry is limited to operational metadata.
+
+### What It Does NOT Do
+
+- **Does not block functionality.** If the licensing server is unreachable, everything keeps working. There are no feature gates, no expiration, no degraded mode.
+- **Does not collect workspace data.** Your files, conversations, agent memory, financial data, and integrations are never transmitted.
+- **Does not phone home for permissions.** The instance runs fully offline if needed — the heartbeat is informational only.
+
+## Free Tier
+
+OpenClaude ships with a free tier that has no limitations. All agents, skills, routines, and dashboard features are available without paying anything.
+
+The licensing system exists to help Evolution Foundation understand adoption — how many instances are active, geographic distribution, version spread — which informs development priorities and community support.
+
+## Licensing API
+
+The licensing server exposes an API that the `int-licensing` skill queries for telemetry data. This is used by the daily and weekly licensing routines to generate open source growth reports:
+
+- Active instances count
+- Geographic distribution
+- Version adoption rates
+- Message volume trends
+
+These reports help track the health and growth of the open source ecosystem.
+
+## Configuration
+
+The licensing configuration is stored in your workspace config and `.env` file. It's set up automatically during `make setup`. You don't need to configure anything manually.
+
+If you need to check your licensing status, use the dashboard's Integrations page or run the licensing daily routine:
+
+```bash
+make licensing
+```
+
+
+---
+
+# Makefile Reference
+
+All available `make` commands. Run `make help` to see this list in your terminal.
+
+## Setup
+
+```bash
+make setup           # Interactive setup wizard (runs setup.py)
+                     # Checks prerequisites (Claude Code, uv, Node.js)
+                     # Installs Python deps via `uv sync`
+                     # Creates config files, .env, CLAUDE.md, workspace folders
+                     # Builds the dashboard frontend via npm
+```
+
+## Dashboard
+
+```bash
+make dashboard-app   # Start the web dashboard (React + Flask) on localhost:8080
+                     # Builds frontend, then starts the Flask backend
+```
+
+## Core Routines
+
+These ship with the repo and run the essential daily loop:
+
+```bash
+make morning         # Morning briefing -- agenda, emails, tasks (@clawdia)
+make eod             # End of day -- memory, logs, learnings (@clawdia)
+make memory          # Memory sync -- consolidate agent memory (@clawdia)
+make weekly          # Full weekly review (@clawdia)
+```
+
+## Custom Routines -- Daily
+
+```bash
+make sync            # Sync Fathom meetings (@clawdia)
+make triage          # Email triage (@clawdia)
+make review          # Organize Todoist tasks (@clawdia)
+make dashboard       # Consolidated 360 dashboard (@clawdia)
+make community       # Daily Discord community pulse (@pulse)
+make faq             # FAQ sync -- Discord + GitHub (@pulse)
+make fin-pulse       # Financial pulse -- Stripe + Omie snapshot (@flux)
+make licensing       # Licensing daily -- open source telemetry (@atlas)
+make social          # Social analytics -- cross-platform report (@pixel)
+make youtube         # YouTube channel analytics (@pixel)
+make instagram       # Instagram profile analytics (@pixel)
+make linkedin        # LinkedIn profile analytics (@pixel)
+```
+
+## Custom Routines -- Weekly
+
+```bash
+make fin-weekly      # Financial weekly report (@flux)
+make licensing-weekly # Licensing weekly -- open source growth (@atlas)
+make trends          # Trend analysis -- community, GitHub, financial (@clawdia)
+make linear          # Linear review -- issues, blockers, stale (@atlas)
+make github          # GitHub review -- PRs, issues, stars (@atlas)
+make community-week  # Weekly Discord community report (@pulse)
+make strategy        # Strategy digest -- consolidated business view (@sage)
+make health          # Weekly health check-in (@kai)
+```
+
+## Custom Routines -- Monthly
+
+```bash
+make fin-close       # Monthly close kickoff (@flux)
+make community-month # Monthly community report (@pulse)
+make licensing-month # Monthly licensing report (@atlas)
+```
+
+## Combos
+
+```bash
+make daily           # Runs: sync + review (sync meetings then organize tasks)
+```
+
+## Servers
+
+```bash
+make scheduler       # Start the routine scheduler (runs in foreground)
+make telegram        # Start Telegram bot in background (screen session)
+make telegram-stop   # Stop the Telegram bot
+make telegram-attach # Attach to Telegram terminal (Ctrl+A D to detach)
+```
+
+## Observability
+
+```bash
+make logs            # Show latest JSONL log entries
+make logs-detail     # List detailed log files
+make logs-tail       # Show the latest full detailed log
+make metrics         # Per-routine metrics table (runs, cost, tokens, success rate)
+make clean-logs      # Remove logs older than 30 days
+```
+
+## Docker (VPS Deployment)
+
+```bash
+make docker-up       # Start scheduler + telegram in Docker
+make docker-down     # Stop all containers
+make docker-logs     # Show container logs (follow mode)
+make docker-run ADW=good_morning.py  # Run a specific routine in Docker
+make docker-build    # Build the Docker image
+```
+
+## Help
+
+```bash
+make help            # Show all available commands with descriptions
+```
+
+
+---
+
+# workspace.yaml Reference
+
+The `config/workspace.yaml` file is the central configuration for your OpenClaude instance. It's generated by `make setup` and read by the dashboard, scheduler, and setup scripts.
+
+## Location
+
+```
+config/workspace.yaml
+```
+
+## Format
+
+```yaml
+name: "My Workspace"
+owner: "Your Name"
+company: "Your Company"
+timezone: "America/Sao_Paulo"
+language: "pt-BR"
+port: 8080
+```
+
+## Fields
+
+### name
+
+**Type:** string
+**Required:** yes
+
+Display name for the workspace. Shown in the dashboard header and reports.
+
+### owner
+
+**Type:** string
+**Required:** yes
+
+Your name. Used in CLAUDE.md generation and report attribution.
+
+### company
+
+**Type:** string
+**Required:** yes
+
+Company name. Used in report headers and financial context.
+
+### timezone
+
+**Type:** string (IANA timezone)
+**Required:** yes
+**Default:** `America/Sao_Paulo`
+
+Controls schedule timing for all routines. The scheduler uses this to determine when to run morning briefings, end-of-day reports, etc. Must be a valid [IANA timezone identifier](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones).
+
+Common values:
+- `America/New_York` — US Eastern
+- `America/Chicago` — US Central
+- `America/Los_Angeles` — US Pacific
+- `America/Sao_Paulo` — Brazil (BRT)
+- `Europe/London` — UK
+- `Europe/Berlin` — Central Europe
+- `Asia/Tokyo` — Japan
+
+### language
+
+**Type:** string (language code)
+**Required:** yes
+**Default:** `pt-BR`
+
+Language for agent responses and generated reports. Agents use this to determine output language.
+
+Common values:
+- `pt-BR` — Brazilian Portuguese
+- `en` — English
+- `es` — Spanish
+
+### port
+
+**Type:** integer
+**Required:** yes
+**Default:** `8080`
+
+Port for the web dashboard. The Flask backend and React frontend are served on this port.
+
+```bash
+# Dashboard will be available at:
+http://localhost:{port}
+```
+
+## How It's Used
+
+| Component | Reads | Uses |
+|-----------|-------|------|
+| `make setup` | Generates the file | Interactive wizard |
+| Dashboard backend | `port` | Server binding |
+| Dashboard frontend | `name`, `owner` | UI display |
+| Scheduler | `timezone` | Routine scheduling |
+| setup.py (CLAUDE.md generation) | All fields | Context generation |
+
+## Editing
+
+You can edit the file directly:
+
+```bash
+nano config/workspace.yaml
+```
+
+Or re-run the setup wizard to regenerate it:
+
+```bash
+make setup
+```
+
+Changes to `port` require restarting the dashboard (`make dashboard-app`). Changes to `timezone` require restarting the scheduler (`make scheduler`).
+
+## Companion Files
+
+The setup wizard also generates these alongside `workspace.yaml`:
+
+| File | Purpose |
+|------|---------|
+| `config/routines.yaml` | Routine schedules and enabled/disabled state |
+| `.env` | API keys for integrations |
+| `CLAUDE.md` | Context file for Claude Code sessions |
+
+
+---
+
+# Routine Examples
+
+Walkthrough of two real routines showing how all the pieces fit together.
+
+## Example 1: Community Pulse
+
+**What it does**: Reads Discord and WhatsApp messages from the last 24 hours, analyzes activity, sentiment, and support questions, then generates an HTML report.
+
+**Agent**: Pulse (`pulse-community`)
+**Skill**: `pulse-daily`
+**Schedule**: Daily at 20:00
+
+### The script
+
+`ADWs/routines/examples/community_daily.py`:
+
+```python
+#!/usr/bin/env python3
+"""ADW: Community Daily Pulse -- Daily community report via Pulse"""
+
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))))
+from runner import run_skill, banner, summary
+
+def main():
+    banner("Community Pulse", "Discord - Activity - Sentiment - Support | @pulse")
+    results = []
+    results.append(run_skill(
+        "pulse-daily",
+        log_name="community-daily",
+        timeout=600,
+        agent="pulse-community"
+    ))
+    summary(results, "Community Daily Pulse")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nCancelled.")
+```
+
+### How it flows
+
+1. **Runner** calls `claude --print --agent pulse-community` with a prompt to execute `/pulse-daily`
+2. **Claude** loads the Pulse agent system prompt
+3. **Pulse** reads the `pulse-daily` SKILL.md instructions
+4. The skill tells Pulse to:
+   - Fetch Discord messages via the Discord API
+   - Fetch WhatsApp messages via the Evolution API
+   - Analyze activity, sentiment, top topics, support questions
+   - Read the HTML template from `.claude/templates/html/`
+   - Fill the template with collected data
+   - Save to `workspace/community/reports/daily/`
+   - Send a Telegram notification with the summary
+5. **Runner** logs the result and updates metrics
+
+### The schedule entry
+
+In `config/routines.yaml`:
+
+```yaml
+daily:
+  - name: "Community Pulse"
+    script: community_daily.py
+    time: "20:00"
+    enabled: true
+```
+
+### Output
+
+An HTML report saved to:
+```
+workspace/community/reports/daily/[C] 2026-04-08-community-pulse.html
+```
+
+Plus a Telegram message with a brief summary.
+
+---
+
+## Example 2: Financial Pulse
+
+**What it does**: Queries Stripe for MRR, charges, churn, and failures. Queries Omie for payables, receivables, and invoices. Generates an HTML financial snapshot.
+
+**Agent**: Flux (`flux-finance`)
+**Skill**: `fin-daily-pulse`
+**Schedule**: Daily at 19:00
+
+### The script
+
+`ADWs/routines/examples/financial_pulse.py`:
+
+```python
+#!/usr/bin/env python3
+"""ADW: Financial Pulse -- Daily financial snapshot via Flux"""
+
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))))
+from runner import run_skill, banner, summary
+
+def main():
+    banner("Financial Pulse", "Stripe - Omie - MRR - Churn | @flux")
+    results = []
+    results.append(run_skill(
+        "fin-daily-pulse",
+        log_name="financial-pulse",
+        timeout=600,
+        agent="flux-finance"
+    ))
+    summary(results, "Financial Pulse")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nCancelled.")
+```
+
+### What the skill does (step by step)
+
+The `fin-daily-pulse` SKILL.md instructs Flux to:
+
+1. **Collect Stripe data** -- MRR from active subscriptions, today's charges (succeeded vs failed), 30-day churn rate, 7-day refunds, new customers
+2. **Collect Omie data** -- overdue receivables, payables due in 7 days, pending invoices
+3. **Consolidate transactions** -- all financial movements for the day
+4. **Classify health** -- green (healthy), yellow (warning), or red (risk) based on churn rate, overdue amounts, and MRR trend
+5. **Generate alerts** -- payment failures, overdue accounts, missing invoices, anomalies
+6. **Fill HTML template** -- reads `.claude/templates/html/custom/financial-pulse.html` and replaces placeholders
+7. **Save** to `workspace/finance/reports/daily/[C] YYYY-MM-DD-financial-pulse.html`
+8. **Notify via Telegram** -- sends a short summary with MRR and alert count
+
+---
+
+## Adapting an Example for Your Use Case
+
+To create a routine similar to these:
+
+### 1. Identify the components
+
+| Component | Your version |
+|-----------|-------------|
+| **Agent** | Which agent should run this? (or create a new one) |
+| **Skill** | Does a skill exist, or do you need to create one? |
+| **Data source** | What API or integration provides the data? |
+| **Output** | HTML report? Markdown file? Telegram notification? |
+
+### 2. Create or reuse a skill
+
+If an existing skill covers your use case, reuse it. Otherwise create a new SKILL.md in `.claude/skills/my-skill/SKILL.md` with step-by-step instructions.
+
+### 3. Create the routine script
+
+Copy one of the examples above and change:
+- The skill name in `run_skill()`
+- The agent name
+- The log name
+- The banner text
+
+### 4. Register the schedule
+
+Add an entry to `config/routines.yaml` and optionally add a Makefile target:
+
+```makefile
+my-routine:         ## Description of my routine (@agent)
+	$(PYTHON) $(ADW_DIR)/examples/my_routine.py
+```
+
+### 5. Test manually
+
+```bash
+make my-routine
+# or
+python3 ADWs/routines/examples/my_routine.py
+```
+
+Check `make logs` and `make metrics` to verify it ran correctly.
+
+### Using the create-routine skill
+
+Instead of doing this manually, run `/create-routine` in Claude Code. It generates the script, Makefile target, and schedule entry for you.
+
+
+---
+
+# Routines Overview
+
+Routines are automated workflows (ADWs -- AI Developer Workflows) that run on a schedule. Each routine is a Python script that invokes a skill through an agent via the Claude Code CLI.
+
+## Core vs Custom
+
+```
+ADWs/routines/
+  good_morning.py       # Core (ships with the repo, hardcoded in scheduler.py)
+  end_of_day.py         # Core
+  memory_sync.py        # Core
+  weekly_review.py      # Core
+  examples/             # Example routines (tracked with the repo)
+    community_daily.py
+    financial_pulse.py
+    ...
+  custom/               # User-created (gitignored), scheduled via routines.yaml
+    my_routine.py
+    ...
+```
+
+**Core routines** ship with the repo and cover the essential daily loop: good_morning, end_of_day, memory_sync, and weekly_review. Their schedules are hardcoded in `scheduler.py` — they do NOT come from `config/routines.yaml`.
+
+**Example routines** live in `ADWs/routines/examples/` and are tracked with the repo. These are reference implementations for common integrations (Discord, Stripe, YouTube, etc).
+
+**Custom routines** live in `ADWs/routines/custom/` and are gitignored. Copy from examples or create your own. Only custom routines go in `config/routines.yaml`. The `create-routine` skill helps generate them.
+
+## ADW Runner
+
+All routines use `ADWs/runner.py`, which provides:
+
+- **`run_skill(skill, log_name, timeout, agent)`** -- executes a skill via Claude Code CLI
+- **`run_claude(prompt, log_name, timeout, agent)`** -- executes a raw prompt
+- **`banner(title, subtitle)`** -- prints a styled header
+- **`summary(results, title)`** -- prints execution summary with cost/token stats
+
+The runner handles:
+- Invoking `claude --print --dangerously-skip-permissions --output-format json`
+- Passing the `--agent` flag to run as a specific agent
+- Logging to JSONL files (`ADWs/logs/YYYY-MM-DD.jsonl`)
+- Saving detailed logs (`ADWs/logs/detail/`)
+- Accumulating metrics per routine (`ADWs/logs/metrics.json`)
+- Rich terminal output with progress indicators
+
+## How a Routine Script Works
+
+Every routine follows the same pattern:
+
+```python
+#!/usr/bin/env python3
+"""ADW: Financial Pulse -- Daily financial snapshot via Flux"""
+
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))))
+from runner import run_skill, banner, summary
+
+def main():
+    banner("Financial Pulse", "Stripe - Omie - MRR - Churn | @flux")
+    results = []
+    results.append(run_skill(
+        "fin-daily-pulse",
+        log_name="financial-pulse",
+        timeout=600,
+        agent="flux-finance"
+    ))
+    summary(results, "Financial Pulse")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nCancelled.")
+```
+
+Key elements:
+1. Import the runner from `ADWs/runner.py`
+2. Print a banner with the routine name
+3. Call `run_skill()` with the skill name, log name, timeout, and agent
+4. Print a summary
+
+For multi-step routines, append multiple results to the list.
+
+## config/routines.yaml
+
+This file defines the schedule for **custom routines only**. Core routines (good_morning, end_of_day, memory_sync, weekly_review) are hardcoded in `scheduler.py` and do not need entries here.
+
+```yaml
+daily:
+  - name: "Community Pulse"
+    script: community_daily.py
+    time: "20:00"
+    enabled: true
+
+  - name: "Sync Meetings"
+    script: sync_meetings.py
+    interval: 30          # Every 30 minutes instead of fixed time
+    enabled: true
+
+weekly:
+  - name: "Financial Weekly"
+    script: financial_weekly.py
+    day: friday
+    time: "07:30"
+    enabled: true
+
+  - name: "Linear Review"
+    script: linear_review.py
+    days: [monday, wednesday, friday]   # Multiple days
+    time: "09:00"
+    enabled: true
+
+monthly:
+  - name: "Monthly Close"
+    script: monthly_close.py
+    day: 1                # Day of month
+    time: "08:00"
+    enabled: true
+```
+
+Fields:
+- `name`: Display name
+- `script`: Python file in `ADWs/routines/custom/` (or `ADWs/routines/examples/`)
+- `time`: Execution time (24h format, local timezone)
+- `interval`: Run every N minutes (instead of fixed time)
+- `day`: Day of week (weekly) or day of month (monthly)
+- `days`: Array for multi-day weekly schedules
+- `enabled`: Toggle on/off without deleting
+
+## Scheduler
+
+Start the scheduler with:
+
+```bash
+make scheduler
+```
+
+This runs `scheduler.py`, which has core routines hardcoded and also reads `config/routines.yaml` for custom routines. The scheduler runs in the foreground and shows real-time progress.
+
+The dashboard also starts/stops the scheduler from the **Services** page.
+
+## Creating Custom Routines
+
+### Using the skill
+
+```
+/create-routine
+```
+
+The `create-routine` skill walks you through:
+1. What the routine does
+2. Which agent runs it
+3. Which skill it invokes
+4. The schedule (daily/weekly/monthly)
+
+It generates the Python script, adds a Makefile target, and updates `config/routines.yaml`.
+
+### Manually
+
+1. Create `ADWs/routines/custom/my_routine.py` following the pattern above
+2. Add an entry to `config/routines.yaml`
+3. Add a Makefile target (optional, for manual runs)
+
+## Manual Execution
+
+Run any routine directly via make:
+
+```bash
+make morning         # Morning briefing
+make eod             # End of day
+make community       # Community pulse
+make fin-pulse       # Financial pulse
+make weekly          # Weekly review
+make licensing       # Licensing daily
+make social          # Social analytics
+```
+
+Or run the Python script directly:
+
+```bash
+python3 ADWs/routines/examples/community_daily.py
+```
+
+## Logs and Metrics
+
+### Log files
+
+```
+ADWs/logs/
+  2026-04-08.jsonl           # Daily JSONL log (one line per run)
+  metrics.json               # Accumulated metrics per routine
+  detail/                    # Full stdout/stderr per run
+    20260408-200000-community-daily.log
+```
+
+### Viewing logs
+
+```bash
+make logs            # Latest JSONL entries
+make logs-detail     # List detailed log files
+make logs-tail       # Show the latest full log
+make metrics         # Per-routine metrics table
+make clean-logs      # Remove logs older than 30 days
+```
+
+### Metrics format
+
+`metrics.json` tracks per routine:
+- Total runs, successes, failures, success rate
+- Average duration
+- Total and average cost (USD)
+- Total input/output tokens
+- Last run timestamp
+
+
+---
+
+# Skills Overview
+
+Skills teach Claude new capabilities through markdown instructions. They are not plugins or code — they are structured prompts that Claude follows when a skill is triggered.
+
+## What Is a Skill?
+
+A skill is a directory in `.claude/skills/` containing a `SKILL.md` file with:
+
+- **Frontmatter** (`name`, `description`) that controls when the skill triggers
+- **Instructions** that tell Claude exactly what to do, step by step
+
+```
+.claude/skills/
+  fin-daily-pulse/
+    SKILL.md          # The skill definition
+  social-post-writer/
+    SKILL.md
+  int-stripe/
+    SKILL.md
+```
+
+## Skill Categories
+
+Skills are organized by prefix:
+
+The repo ships **~80 skills** (non-evo). If you install [Evo Method](https://github.com/EvolutionAPI/EVO-METHOD) separately, you get ~45 additional `evo-` skills — these are gitignored from this repo but work normally when present locally.
+
+| Prefix | Category | Count | Examples |
+|--------|----------|-------|----------|
+| `social-` | Social media | ~17 | `social-post-writer`, `social-analytics-report` |
+| `int-` | Integrations | ~13 | `int-stripe`, `int-discord`, `int-youtube` |
+| `fin-` | Finance | ~11 | `fin-daily-pulse`, `fin-weekly-report`, `fin-reconciliation` |
+| `prod-` | Productivity | ~9 | `prod-good-morning`, `prod-end-of-day`, `prod-dashboard` |
+| `mkt-` | Marketing | ~8 | `mkt-campaign-plan`, `mkt-seo-audit`, `mkt-content-creation` |
+| `gog-` | Google (Gmail, Calendar) | ~6 | `gog-email-triage`, `gog-calendar`, `gog-tasks` |
+| `obs-` | Obsidian | ~5 | `obs-obsidian-cli`, `obs-obsidian-markdown` |
+| `discord-` | Discord | ~5 | `discord-get-messages`, `discord-send-message` |
+| `pulse-` | Community | ~4 | `pulse-daily`, `pulse-weekly`, `pulse-monthly` |
+| `sage-` | Strategy | ~3 | `sage-okr-review`, `sage-strategy-digest` |
+
+> **Evo Method skills** (`evo-` prefix, ~45 skills) cover dev, architect, QA, PM, sprints, and reviews. They are maintained in the [EVO-METHOD](https://github.com/EvolutionAPI/EVO-METHOD) repo. Install them locally and they appear in `.claude/skills/` alongside the built-in skills — gitignored so they don't pollute this repo.
+
+## How Triggering Works
+
+The `description` field in SKILL.md frontmatter tells Claude when to activate the skill. Claude matches user intent against all skill descriptions and picks the best match.
+
+Example from `fin-daily-pulse`:
+
+```yaml
+---
+name: fin-daily-pulse
+description: "Daily financial pulse -- queries Stripe (MRR, charges, churn, failures) and Omie (accounts payable/receivable, invoices) to generate an HTML snapshot of the company's financial health. Trigger when user says 'financial pulse', 'financial snapshot', or 'financial metrics'."
+---
+```
+
+Key tips for good descriptions:
+- State what the skill does concretely
+- List trigger phrases the user might say
+- Be specific enough to avoid overlapping with other skills
+
+## SKILL.md Structure
+
+```markdown
+---
+name: my-skill-name
+description: "What it does and when to trigger it."
+---
+
+# Skill Title
+
+Brief description of what the skill produces.
+
+## Step 1 -- Gather Data
+
+Instructions for the first step...
+
+## Step 2 -- Process
+
+Instructions for processing...
+
+## Step 3 -- Generate Output
+
+Where and how to save the output...
+
+## Step 4 -- Confirm
+
+What to show the user when done...
+```
+
+## Creating a New Skill
+
+### 1. Create the directory and file
+
+```bash
+mkdir -p .claude/skills/my-new-skill
+```
+
+### 2. Write SKILL.md
+
+```markdown
+---
+name: my-new-skill
+description: "Generate a weekly team standup summary from Linear issues and GitHub PRs. Trigger when user says 'standup summary', 'team update', or 'what did the team do'."
+---
+
+# Team Standup Summary
+
+Generates a weekly summary of team activity.
+
+## Step 1 -- Collect Linear Data
+
+Use the `/int-linear-review` skill to fetch:
+- Issues completed this week
+- Issues in progress
+- Blockers
+
+## Step 2 -- Collect GitHub Data
+
+Use the `/int-github-review` skill to fetch:
+- PRs merged this week
+- PRs in review
+
+## Step 3 -- Generate Summary
+
+Format as a markdown report with sections:
+- Completed
+- In Progress
+- Blocked
+- Highlights
+
+## Step 4 -- Save
+
+Save to `workspace/projects/reports/[C] YYYY-MM-DD-standup.md`
+```
+
+### 3. Test it
+
+Open Claude Code and say: "generate a standup summary" -- Claude should match your skill's description and follow the instructions.
+
+## Skills vs Agents
+
+| | Agent | Skill |
+|---|---|---|
+| **What** | Persona with identity and memory | Step-by-step instructions |
+| **Scope** | Broad domain (finance, community) | Specific task (daily pulse, post writer) |
+| **Memory** | Persistent across sessions | None (stateless) |
+| **Invoked by** | Slash command or auto-routing | Description matching or agent delegation |
+
+Skills are often used *by* agents. For example, the Flux agent uses `fin-daily-pulse`, `fin-weekly-report`, and `int-stripe` skills to do its work. Routines invoke skills through agents via the runner.

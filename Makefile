@@ -8,6 +8,9 @@
 PYTHON := $(shell command -v uv >/dev/null 2>&1 && echo "uv run python" || echo "python3")
 
 # ── Setup ──────────────────────────────────
+docs-build:         ## 📄 Regenerate docs/llms-full.txt
+	@$(PYTHON) -c "from pathlib import Path; docs=Path('docs'); parts=['# OpenClaude Documentation\n\nComplete reference.\n']; [parts.append(f.read_text()) for f in sorted(docs.rglob('*.md'))]; Path('docs/llms-full.txt').write_text('\n\n---\n\n'.join(parts)); print(f'Generated docs/llms-full.txt ({len(parts)-1} docs)')"
+
 setup:              ## 🔧 Interactive setup wizard (prerequisites, config, folders)
 	$(PYTHON) setup.py
 

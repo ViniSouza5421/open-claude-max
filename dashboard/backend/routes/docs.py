@@ -141,21 +141,11 @@ def doc_image(filename: str):
 
 @bp.route("/api/docs/llms-full.txt")
 def llms_full():
-    """Concatenate all docs into one text file for LLM consumption."""
-    if not DOCS_DIR.is_dir():
-        return Response("No documentation found.", status=404, mimetype="text/plain")
-
-    parts = ["# OpenClaude Documentation\n\nComplete reference for LLMs.\n"]
-    md_files = sorted(DOCS_DIR.rglob("*.md"), key=lambda f: str(f.relative_to(DOCS_DIR)))
-    for f in md_files:
-        try:
-            content = f.read_text(encoding="utf-8", errors="replace")
-            parts.append(content)
-        except Exception:
-            continue
-
-    full_text = "\n\n---\n\n".join(parts)
-    return Response(full_text, mimetype="text/plain; charset=utf-8")
+    """Serve pre-generated llms-full.txt for LLM consumption."""
+    txt_path = DOCS_DIR / "llms-full.txt"
+    if txt_path.is_file():
+        return send_from_directory(str(DOCS_DIR), "llms-full.txt", mimetype="text/plain; charset=utf-8")
+    return Response("File not found. Run: make docs-build", status=404, mimetype="text/plain")
 
 
 @bp.route("/api/docs/<path:filepath>")
