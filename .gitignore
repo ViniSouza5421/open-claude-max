@@ -98,4 +98,4 @@ site/.npmrc
 site/pnpm-lock.yaml
 site/pnpm-workspace.yaml
 site/replit.md
-site/lib/
+site/lib/mempalace.yaml
