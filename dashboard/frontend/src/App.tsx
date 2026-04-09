@@ -77,8 +77,7 @@ function AppContent() {
       >
         <Routes>
           <Route path="/" element={<Overview />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/reports/:path" element={<Reports />} />
+          <Route path="/workspace/*" element={<Reports />} />
           <Route path="/agents" element={<Agents />} />
           <Route path="/agents/:name" element={<AgentDetail />} />
           <Route path="/routines" element={<Routines />} />

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
-  LayoutDashboard, FileText, Bot, Clock, Zap, Layout, Calendar,
+  LayoutDashboard, Bot, Clock, Zap, Layout, Calendar,
   Brain, Plug, DollarSign, Settings, FolderOpen, MessageSquare,
   Monitor, Users, ScrollText, LogOut, Menu, X, Shield, BookOpen, Library,
   ArrowUpCircle, ChevronDown,
@@ -58,7 +58,7 @@ const navGroups: NavGroup[] = [
     label: 'Data',
     collapsible: true,
     items: [
-      { to: '/reports', label: 'Reports', icon: FileText, resource: 'reports' },
+      { to: '/workspace', label: 'Workspace', icon: FolderOpen, resource: 'reports' },
       { to: '/memory', label: 'Memory', icon: Brain, resource: 'memory' },
       { to: '/mempalace', label: 'Knowledge', icon: Library, resource: 'mempalace' },
       { to: '/files', label: 'Files', icon: FolderOpen, resource: 'files' },

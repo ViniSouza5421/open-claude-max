@@ -300,7 +300,7 @@ export default function Overview() {
               </div>
               Recent Reports
             </h2>
-            <Link to="/reports" className="text-xs font-medium text-[#667085] hover:text-[#00FFA7] transition-colors flex items-center gap-1">
+            <Link to="/workspace" className="text-xs font-medium text-[#667085] hover:text-[#00FFA7] transition-colors flex items-center gap-1">
               View all <ArrowRight size={12} />
             </Link>
           </div>
@@ -317,7 +317,7 @@ export default function Overview() {
                 return (
                   <Link
                     key={i}
-                    to={`/reports/${encodeURIComponent(r.path)}`}
+                    to={`/workspace/${r.path?.replace(/^workspace\//, '') || ''}`}
                     className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/[0.03] transition-all group"
                   >
                     <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/[0.04] shrink-0">

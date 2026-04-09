@@ -1,109 +1,113 @@
-"""Reports endpoint — auto-discovers HTML/MD reports in workspace/."""
+"""Workspace file browser — browse and view files in workspace/."""
 
-import re
+import os
 from flask import Blueprint, jsonify, request, Response, abort
 from routes._helpers import WORKSPACE, safe_read
 
 bp = Blueprint("reports", __name__)
 
-# Area detection from path
-AREA_MAP = {
-    "daily-logs": "daily",
-    "community": "community",
-    "social": "social",
-    "finance": "financial",
-    "projects": "projects",
-    "strategy": "strategy",
-    "personal": "personal",
-    "meetings": "meetings",
-    "courses": "courses",
+VIEWABLE_EXTENSIONS = {".html", ".md", ".txt", ".json", ".csv", ".yaml", ".yml", ".log"}
+ICON_MAP = {
+    ".html": "file-code",
+    ".md": "file-text",
+    ".txt": "file-text",
+    ".json": "file-json",
+    ".csv": "table",
+    ".yaml": "file-cog",
+    ".yml": "file-cog",
+    ".log": "scroll-text",
+    ".png": "image",
+    ".jpg": "image",
+    ".jpeg": "image",
+    ".pdf": "file",
 }
 
 
-def _detect_area(rel_path: str) -> str:
-    """Detect area from the file path."""
-    parts = rel_path.lower().split("/")
-    for part in parts:
-        for key, area in AREA_MAP.items():
-            if key in part:
-                return area
-    return "other"
+@bp.route("/api/workspace/tree")
+def workspace_tree():
+    """Return directory tree for a given path inside workspace/."""
+    rel_path = request.args.get("path", "")
+    target = (WORKSPACE / "workspace" / rel_path).resolve()
+
+    # Security: ensure we stay inside workspace/
+    try:
+        target.relative_to((WORKSPACE / "workspace").resolve())
+    except ValueError:
+        abort(403, description="Access denied")
+
+    if not target.is_dir():
+        abort(404, description="Directory not found")
+
+    items = []
+    for entry in sorted(target.iterdir(), key=lambda e: (not e.is_dir(), e.name.lower())):
+        if entry.name.startswith("."):
+            continue
+
+        rel = str(entry.relative_to((WORKSPACE / "workspace").resolve()))
+        item = {
+            "name": entry.name,
+            "path": rel,
+            "is_dir": entry.is_dir(),
+        }
+
+        if entry.is_dir():
+            # Count children
+            try:
+                children = [c for c in entry.iterdir() if not c.name.startswith(".")]
+                item["children_count"] = len(children)
+            except PermissionError:
+                item["children_count"] = 0
+        else:
+            item["size"] = entry.stat().st_size
+            item["modified"] = entry.stat().st_mtime
+            item["extension"] = entry.suffix.lower()
+            item["icon"] = ICON_MAP.get(entry.suffix.lower(), "file")
+            item["viewable"] = entry.suffix.lower() in VIEWABLE_EXTENSIONS
+
+        items.append(item)
+
+    # Build breadcrumb parts
+    breadcrumbs = [{"name": "workspace", "path": ""}]
+    if rel_path:
+        parts = rel_path.split("/")
+        for i, part in enumerate(parts):
+            breadcrumbs.append({
+                "name": part,
+                "path": "/".join(parts[:i + 1]),
+            })
+
+    return jsonify({"items": items, "breadcrumbs": breadcrumbs, "current_path": rel_path})
 
 
-def _detect_type(name: str) -> str:
-    low = name.lower()
-    if "weekly" in low:
-        return "weekly"
-    if "monthly" in low:
-        return "monthly"
-    return "daily"
-
-
-def _extract_date(name: str) -> str | None:
-    """Try to extract a date from the filename."""
-    m = re.search(r"(\d{4}-\d{2}-\d{2})", name)
-    if m:
-        return m.group(1)
-    m = re.search(r"(\d{4}_\d{2}_\d{2})", name)
-    if m:
-        return m.group(1).replace("_", "-")
-    return None
-
-
-def _list_reports() -> list[dict]:
-    """Scan entire workspace/ for HTML and MD report files."""
+# Keep old API for backwards compatibility (Overview page uses it)
+@bp.route("/api/reports")
+def list_reports():
+    """Legacy: flat list of HTML/MD reports."""
+    import re
     reports = []
     workspace_dir = WORKSPACE / "workspace"
     if not workspace_dir.is_dir():
-        return reports
+        return jsonify(reports)
 
     for f in workspace_dir.rglob("*"):
-        if not f.is_file():
+        if not f.is_file() or f.suffix.lower() not in (".html", ".md") or f.name.startswith("."):
             continue
-        if f.suffix.lower() not in (".html", ".md"):
-            continue
-        # Skip .gitkeep and hidden files
-        if f.name.startswith("."):
-            continue
-
         rel = str(f.relative_to(WORKSPACE))
-        reports.append({
-            "path": rel,
-            "name": f.stem,
-            "area": _detect_area(rel),
-            "type": _detect_type(f.name),
-            "date": _extract_date(f.name),
-            "extension": f.suffix,
-            "modified": f.stat().st_mtime,
-        })
+        name = f.stem
+        m = re.search(r"(\d{4}-\d{2}-\d{2})", name)
+        date = m.group(1) if m else None
+        reports.append({"path": rel, "name": name, "date": date, "extension": f.suffix, "modified": f.stat().st_mtime})
 
     reports.sort(key=lambda x: x.get("modified", 0), reverse=True)
-    return reports
-
-
-@bp.route("/api/reports")
-def list_reports():
-    reports = _list_reports()
-
-    area = request.args.get("area")
-    rtype = request.args.get("type")
-    date = request.args.get("date")
-
-    if area:
-        reports = [r for r in reports if r["area"] == area]
-    if rtype:
-        reports = [r for r in reports if r["type"] == rtype]
-    if date:
-        reports = [r for r in reports if r.get("date") == date]
-
-    return jsonify(reports)
+    return jsonify(reports[:20])  # Only latest 20 for overview
 
 
 @bp.route("/api/reports/<path:filepath>")
 def get_report(filepath):
+    """View a file's content."""
     full = WORKSPACE / filepath
     if not full.is_file():
-        abort(404, description="Report not found")
+        abort(404, description="File not found")
     try:
         full.resolve().relative_to(WORKSPACE.resolve())
     except ValueError:
@@ -113,5 +117,8 @@ def get_report(filepath):
     if content is None:
         abort(500, description="Could not read file")
 
-    mime = "text/html" if full.suffix.lower() == ".html" else "text/markdown"
+    mime_map = {".html": "text/html", ".md": "text/markdown", ".json": "application/json",
+                ".csv": "text/csv", ".yaml": "text/yaml", ".yml": "text/yaml",
+                ".txt": "text/plain", ".log": "text/plain"}
+    mime = mime_map.get(full.suffix.lower(), "text/plain")
     return Response(content, mimetype=mime)
