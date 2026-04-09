@@ -37,6 +37,9 @@ Direct HTTP calls to service APIs, executed by skills and routines via Python sc
 | LinkedIn | @pixel | `int-linkedin`, `social-linkedin-report` |
 | WhatsApp | @pulse | `int-whatsapp`, `pulse-daily` |
 | Licensing | @atlas | `int-licensing`, `prod-licensing-daily` |
+| Evolution API | @pulse | `int-evolution-api`, `pulse-daily` |
+| Evolution Go | @pulse | `int-evolution-go`, `pulse-daily` |
+| Evo CRM | @nex | `int-evo-crm` |
 
 API clients read credentials from `.env` at runtime.
 
@@ -97,6 +100,9 @@ See individual integration guides for setup steps:
 - [Stripe](stripe.md)
 - [GitHub](github.md)
 - [Google Calendar + Gmail](google.md)
+- [Evolution API](evolution-api.md)
+- [Evolution Go](evolution-go.md)
+- [Evo CRM](evo-crm.md)
 
 ## Multi-Account Support
 

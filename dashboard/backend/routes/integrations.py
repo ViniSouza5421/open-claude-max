@@ -17,6 +17,9 @@ INTEGRATIONS = [
     {"name": "YouTube", "key": "SOCIAL_YOUTUBE_", "category": "social", "prefix": True},
     {"name": "Instagram", "key": "SOCIAL_INSTAGRAM_", "category": "social", "prefix": True},
     {"name": "LinkedIn", "key": "SOCIAL_LINKEDIN_", "category": "social", "prefix": True},
+    {"name": "Evolution API", "key": "EVOLUTION_API_KEY", "category": "messaging"},
+    {"name": "Evolution Go", "key": "EVOLUTION_GO_KEY", "category": "messaging"},
+    {"name": "Evo CRM", "key": "EVO_CRM_TOKEN", "category": "crm"},
 ]
 
 

@@ -48,7 +48,7 @@ It turns a single Claude Code installation into a team of 9 specialized agents �
 - **~67 Skills** — organized by domain prefix (`social-`, `fin-`, `int-`, `prod-`, `mkt-`, `gog-`, `obs-`, `discord-`, `pulse-`, `sage-`)
 - **7 Core + 20 Custom Routines** — daily, weekly, and monthly ADWs managed by a scheduler (core routines ship with the repo; custom routines are user-created and gitignored)
 - **Web Dashboard** — React + Flask app with auth, roles, web terminal, service management
-- **18 Integrations** — Google Calendar, Gmail, Linear, GitHub, Discord, Telegram, Stripe, Omie, Fathom, Todoist, YouTube, Instagram, LinkedIn, and more
+- **19 Integrations** — Google Calendar, Gmail, Linear, GitHub, Discord, Telegram, Stripe, Omie, Fathom, Todoist, YouTube, Instagram, LinkedIn, Evolution API, Evolution Go, Evo CRM, and more
 - **2 core + custom HTML report templates** — dark-themed dashboards for every domain
 - **Persistent Memory** — two-tier system (CLAUDE.md + memory/) across sessions
 - **Knowledge Base** — optional semantic search via [MemPalace](https://github.com/milla-jovovich/mempalace) (local ChromaDB vectors, one-click install)
@@ -88,6 +88,9 @@ Connect your existing tools via MCP servers, API clients, or OAuth:
 | **Canva** | MCP | Design and presentations |
 | **Notion** | MCP | Knowledge base, pages, databases |
 | **Obsidian** | CLI | Vault management, notes, search |
+| **Evolution API** | API | WhatsApp messaging — instances, messages, chats, groups |
+| **Evolution Go** | API | WhatsApp messaging (Go implementation) |
+| **Evo CRM** | API | AI-powered CRM — contacts, conversations, pipelines |
 
 Social media accounts (YouTube, Instagram, LinkedIn) are connected via OAuth through the dashboard.
 

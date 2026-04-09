@@ -184,10 +184,10 @@ export default function Home() {
             {/* Social proof numbers */}
             <div className="flex flex-wrap justify-center gap-4 mb-10">
               {[
-                { value: "7,000+", label: "Community members" },
+                { value: "17,000+", label: "Community members" },
                 { value: "9", label: "AI Agents" },
                 { value: "67", label: "Skills" },
-                { value: "16", label: "Integrations" },
+                { value: "19", label: "Integrations" },
               ].map((stat, i) => (
                 <div key={i} className="flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border text-sm">
                   <span className="font-bold text-primary">{stat.value}</span>
@@ -282,7 +282,7 @@ export default function Home() {
                 { icon: BrainCircuit, title: "67 Skills", desc: "Organized by domain: financial, social, marketing, integrations, productivity" },
                 { icon: Clock, title: "Automated Routines", desc: "Morning briefing to monthly close, running on schedule automatically" },
                 { icon: LayoutDashboard, title: "Web Dashboard", desc: "React + Flask with auth, roles, terminal, reports, service management" },
-                { icon: Workflow, title: "16 Integrations", desc: "Gmail, Calendar, GitHub, Linear, Discord, Stripe, Omie, YouTube, LinkedIn" },
+                { icon: Workflow, title: "19 Integrations", desc: "Gmail, Calendar, GitHub, Linear, Discord, Stripe, Evolution API, Evolution Go, Evo CRM, and more" },
                 { icon: Database, title: "Persistent Memory", desc: "Two-tier system that remembers context across conversations and sessions" },
                 { icon: Activity, title: "Full Observability", desc: "Token usage, cost tracking, JSONL logs per routine and agent" },
                 { icon: Zap, title: "Setup in 2 Minutes", desc: "make setup \u2192 make dashboard-app \u2192 done. Everything configures itself." },
@@ -415,6 +415,9 @@ export default function Home() {
               <SiCanva className="w-8 h-8 hover:text-blue-500 transition-colors" />
               <SiNotion className="w-8 h-8 hover:text-white transition-colors" />
               <SiObsidian className="w-8 h-8 hover:text-purple-400 transition-colors" />
+              <MessageSquare className="w-8 h-8 hover:text-emerald-400 transition-colors" title="Evolution API" />
+              <GitBranch className="w-8 h-8 hover:text-emerald-400 transition-colors" title="Evolution Go" />
+              <Database className="w-8 h-8 hover:text-emerald-400 transition-colors" title="Evo CRM" />
             </div>
           </FadeIn>
         </section>
@@ -425,7 +428,7 @@ export default function Home() {
             <div className="relative bg-card/50 border border-border rounded-2xl p-8 md:p-12">
               <div className="absolute -top-6 left-8 text-8xl text-primary/20 font-serif leading-none select-none">&ldquo;</div>
               <blockquote className="text-xl md:text-2xl font-medium leading-relaxed text-center relative z-10 mb-8">
-                Evolution Foundation runs their entire operation on OpenClaude — from morning briefings to monthly financial close, community monitoring across 7,000+ developers, and social media analytics.
+                Evolution Foundation runs their entire operation on OpenClaude — from morning briefings to monthly financial close, community monitoring across 17,000+ developers, and social media analytics.
               </blockquote>
               <div className="flex items-center justify-center gap-4">
                 <img src={MainLogo} alt="Evolution Foundation" className="h-10" />
